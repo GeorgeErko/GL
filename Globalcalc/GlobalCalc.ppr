@@ -1,0 +1,13 @@
+program GlobalCalc;
+
+{$mode objfpc}{$H+}
+
+uses
+  Interfaces, Forms, MainForm, LCLIntf, LCLType, SysUtils;
+
+begin
+  RequireDerivedFormResource := True;
+  Application.Initialize;
+  Application.CreateForm(TfrmCalculator, frmCalculator);
+  Application.Run;
+end.

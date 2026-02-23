@@ -1,0 +1,20 @@
+# Трекаем только исходники/проектные файлы
+auto-generated
+*
+!*/
+!*.pas
+!*.frm
+!*.ppr
+!*.ctpr
+!*.ctps
+!.gitignore
+
+libTess2/
+
+python4delphi-master/
+\!theGrapher1302_/
+.venv/
+Docs/
+Fonts/
+LAS/
+_ArchTest/

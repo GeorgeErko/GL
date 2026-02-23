@@ -1,0 +1,72 @@
+program SimpleCalculator;
+
+uses
+  SysUtils;
+
+// Функция для ввода числа с проверкой
+function GetNumber(Prompt: string): Double;
+var
+  Input: string;
+  Number: Double;
+begin
+  repeat
+    Write(Prompt);
+    Readln(Input);
+    if TryStrToFloat(Input, Number) then
+      Exit(Number)
+    else
+      Writeln('Ошибка: введите корректное число!');
+  until False;
+end;
+
+// Основная программа
+var
+  Num1, Num2, Result: Double;
+  Operation: Char;
+  ContinueCalc: Boolean = True;
+begin
+  Writeln('=== Простой калькулятор ===');
+  Writeln('Доступные операции: +, -, *, /');
+  Writeln('Для выхода введите q');
+  Writeln('===========================');
+
+  while ContinueCalc do
+  begin
+    try
+      // Ввод первого числа
+      Num1 := GetNumber('Введите первое число: ');
+
+      // Ввод операции
+      repeat
+        Write('Введите операцию (+, -, *, /) или q для выхода: ');
+        Readln(Operation);
+        Operation := LowerCase(Operation); // Приводим к нижнему регистру
+        if Operation = 'q' then
+          Halt(0);
+      until Operation in ['+', '-', '*', '/'];
+
+      // Ввод второго числа
+      Num2 := GetNumber('Введите второе число: ');
+
+      // Выполнение операции
+      case Operation of
+        '+': Result := Num1 + Num2;
+        '-': Result := Num1 - Num2;
+        '*': Result := Num1 * Num2;
+        '/':
+          if Num2 <> 0 then
+            Result := Num1 / Num2
+          else
+            raise Exception.Create('Ошибка: деление на ноль!');
+      end;
+
+      // Вывод результата
+      Writeln('Результат: ', Num1:0:2, ' ', Operation, ' ', Num2:0:2, ' = ', Result:0:2);
+      Writeln('---------------------------');
+
+    except
+      on E: Exception do
+        Writeln('Ошибка: ', E.Message);
+    end;
+  end;
+end.

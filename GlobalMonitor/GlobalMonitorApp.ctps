@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <PathDelim Value="\"/>
+    <Version Value="12"/>
+    <BuildModes Active="Default"/>
+    <Units>
+      <Unit>
+        <Filename Value="GlobalMonitorApp.ppr"/>
+        <FRMtype Value="0"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="11"/>
+        <WindowIndex Value="0"/>
+        <CursorPos X="21" Y="13"/>
+        <UsageCount Value="89"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="MonitorGUI.pas"/>
+        <FRMtype Value="200"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="MonitorForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="1"/>
+        <WindowIndex Value="0"/>
+        <CursorPos X="35" Y="22"/>
+        <UsageCount Value="89"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="MonitorDatabase.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="0"/>
+        <WindowIndex Value="0"/>
+        <CursorPos X="45" Y="87"/>
+        <UsageCount Value="89"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\ogcWriter.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="228"/>
+        <CursorPos X="29" Y="247"/>
+        <UsageCount Value="89"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\ogcProperties.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="9"/>
+        <WindowIndex Value="0"/>
+        <CursorPos X="11" Y="13"/>
+        <UsageCount Value="88"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\fpcsrc\packages\fcl-json\src\fpjson.pp"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="175"/>
+        <UsageCount Value="4"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\lcl\comctrls.pp"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="ComCtrls"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="3365"/>
+        <CursorPos X="16" Y="3379"/>
+        <UsageCount Value="6"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\lcl\include\control.inc"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="3959"/>
+        <CursorPos X="21" Y="4001"/>
+        <UsageCount Value="24"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\fpcsrc\rtl\objpas\sysutils\syshelph.inc"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="165"/>
+        <CursorPos X="14" Y="177"/>
+        <UsageCount Value="4"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\fpcsrc\rtl\objpas\classes\classesh.inc"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="737"/>
+        <CursorPos X="15" Y="761"/>
+        <UsageCount Value="7"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\components\packages_pl\pl_VirtualTrees\source\virtualtrees.pas"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="VirtualTrees"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="7520"/>
+        <CursorPos X="24" Y="7529"/>
+        <UsageCount Value="10"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\lcl\graphics.pp"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="Graphics"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="2468"/>
+        <CursorPos X="42" Y="2483"/>
+        <UsageCount Value="9"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\lcl\imglist.pp"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="ImgList"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="253"/>
+        <CursorPos X="3" Y="266"/>
+        <UsageCount Value="5"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\ogcJSON.pas"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="8"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="69"/>
+        <CursorPos X="22" Y="79"/>
+        <UsageCount Value="31"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\lcl\include\font.inc"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="913"/>
+        <CursorPos Y="929"/>
+        <UsageCount Value="8"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\lcl\controls.pp"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="Controls"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="2402"/>
+        <CursorPos X="22" Y="2412"/>
+        <UsageCount Value="21"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\ogcInspector.pas"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="7"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="210"/>
+        <CursorPos X="32" Y="222"/>
+        <UsageCount Value="12"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="..\GlobalShared\ogcBasic.pas"/>
+        <FRMtype Value="0"/>
+        <EditorIndex Value="10"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1801"/>
+        <CursorPos X="28" Y="1812"/>
+        <UsageCount Value="12"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tagraph.pas"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="TAGraph"/>
+        <EditorIndex Value="4"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="410"/>
+        <CursorPos X="14" Y="423"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tatypes.pas"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="TATypes"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="61"/>
+        <UsageCount Value="10"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tatextelements.pas"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="TATextElements"/>
+        <EditorIndex Value="2"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="242"/>
+        <CursorPos X="38" Y="258"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tachartutils.pas"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="TAChartUtils"/>
+        <EditorIndex Value="3"/>
+        <WindowIndex Value="0"/>
+        <CursorPos X="18" Y="19"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tachartaxis.pas"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="TAChartAxis"/>
+        <EditorIndex Value="5"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="84"/>
+        <CursorPos X="3" Y="90"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tachartaxisutils.pas"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="TAChartAxisUtils"/>
+        <EditorIndex Value="6"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="188"/>
+        <CursorPos X="3" Y="159"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tacustomsource.pas"/>
+        <FRMtype Value="0"/>
+        <UnitName Value="TACustomSource"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="976"/>
+        <CursorPos X="35" Y="991"/>
+        <UsageCount Value="10"/>
+      </Unit>
+    </Units>
+    <JumpHistory HistoryIndex="29">
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="11" Column="63"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="199" Column="32" TopLine="187"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tagraph.pas"/>
+        <Caret Line="18" Column="21" TopLine="13"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="18" Column="45"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="203" Column="36" TopLine="191"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="193" Column="32" TopLine="175"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="239" Column="94" TopLine="226"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tatextelements.pas"/>
+        <Caret Line="303" Column="14" TopLine="291"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tatextelements.pas"/>
+        <Caret Line="255" Column="14" TopLine="242"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tachartutils.pas"/>
+        <Caret Line="97" Column="20" TopLine="78"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="12" Column="15"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="241" Column="20" TopLine="228"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="266" Column="35" TopLine="253"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tagraph.pas"/>
+        <Caret Line="423" Column="14" TopLine="411"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="12" Column="16"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="263" Column="35" TopLine="253"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tagraph.pas"/>
+        <Caret Line="423" Column="14" TopLine="410"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tachartaxis.pas"/>
+        <Caret Line="13" Column="15"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tachartaxis.pas"/>
+        <Caret Line="20" Column="14"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tachartaxis.pas"/>
+        <Caret Line="29" Column="20" TopLine="7"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tachartaxis.pas"/>
+        <Caret Line="31" Column="18" TopLine="9"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="266" Column="23" TopLine="253"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="265" Column="57" TopLine="254"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tagraph.pas"/>
+        <Caret Line="423" Column="14" TopLine="410"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="275" Column="6" TopLine="254"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="267" Column="37" TopLine="254"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tagraph.pas"/>
+        <Caret Line="423" Column="14" TopLine="410"/>
+      </Position>
+      <Position>
+        <Filename Value="C:\codetyphon\typhon\components\packages_lz\lz_taChart\source\tachartaxis.pas"/>
+        <Caret Line="90" Column="3" TopLine="84"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="267" Column="8" TopLine="254"/>
+      </Position>
+      <Position>
+        <Filename Value="MonitorGUI.pas"/>
+        <Caret Line="233" Column="64" TopLine="218"/>
+      </Position>
+    </JumpHistory>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes ActiveMode=""/>
+    </RunParams>
+  </ProjectSession>
+  <Debugging>
+    <Watches>
+      <Item>
+        <Expression Value="TogsPropObject"/>
+      </Item>
+    </Watches>
+  </Debugging>
+</CONFIG>

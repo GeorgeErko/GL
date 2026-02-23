@@ -1,0 +1,24 @@
+program GlobalMonitorApp;
+
+{$mode objfpc}{$H+}
+
+uses
+ {$IFDEF UNIX}
+ cthreads,
+ {$ENDIF}
+ {$IFDEF HASAMIGA}
+ athreads,
+ {$ENDIF}
+ Interfaces, // this includes the CT adLCL widgetset
+ Forms, MonitorGUI, MonitorDatabase, ogcWriter, ogcProperties, lz_tachart;
+
+{$R *.res}
+
+begin
+ RequireDerivedFormResource:=True;
+ Application.Scaled:=True;
+ Application.Initialize;
+ Application.CreateForm(TMonitorForm, MonitorForm);
+ Application.Run;
+end.
+

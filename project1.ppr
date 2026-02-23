@@ -1,0 +1,27 @@
+program project1;
+
+{$mode objfpc}{$H+}
+
+uses
+ {$IFDEF UNIX}
+ cthreads,
+ {$ENDIF}
+ {$IFDEF HASAMIGA}
+ athreads,
+ {$ENDIF}
+// Interfaces, // this includes the CT adLCL widgetset
+ ogcWriter, Forms, DebuggerForm, ogcBasic, ogcGeometry, unit2, ogcRects,
+ ogcDrawer32, ogcDrawerCanvas, ogcDrawerGLCanvas, ogcJSON, ogcProperties,
+ ogcMathUtils, StopFormxxx, ogcInspector, Unit1, GMFGeometry, GMFLTDrawer,
+ TTFGeometry, ogcPlayer, ogsBasicObj;
+
+{$R *.res}
+
+begin
+ RequireDerivedFormResource:=True;
+ Application.Scaled:=True;
+ Application.Initialize;
+ Application.CreateForm(TForm1, Form1);
+ Application.Run;
+end.
+

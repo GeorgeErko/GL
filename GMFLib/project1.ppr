@@ -1,0 +1,356 @@
+library project1;
+
+{$mode Delphi}{$H+}
+
+
+uses Interfaces, Classes, SysUtils, Forms, ogcCallBackRec,
+    //
+     newProcs, WptForm2, Collect, newSelector, EcLot, EcDot, WpTwigs,
+     newBlock, Lib, Lines2, Lines3, ecDot2,
+     ogcWriter, newFontScale, DWGText, TextManager, LazUTF8, ogcGeoTypes;
+
+var
+  CallbackRec: PCallbackRec;
+
+{
+ procedure Clear;
+ function CreatePointHandle(X, Y, Z: Double): boolean;
+ function SetPointParams(Color: Integer; Angle, Scale: Double; addParams: String): boolean;
+ function FindBlockHandle(blockName: String): boolean;
+ function CreateBlockHandle(blockName: String; X, Y, Z: Double): boolean;
+ function FindBlockAttrib(attrName: String): boolean;
+ function CreateBlockAttrib(X, Y, Z, Height, Angle: Double; Value: String): boolean;
+ function CreateBlockAttrValue(Value: String): boolean;
+ function AddPrim(Prim: Integer): boolean;
+ procedure WriteIn(S: String);
+//
+ function OpenGMF(FileName: String; CallbackRec_: PCallbackRec): Integer;
+}
+
+// Локальные ф-ции
+
+function SearchPointSign(PC: TSortedCollection; Num: Integer): Pointer;
+var Index: Integer;
+begin
+ Index := SearchThis(PC, Num);
+ If Index = -1 then Result := nil else Result := PC[Index];
+end;
+
+function SearchLineType(PC: TSortedCollection; Num: Integer): Pointer;
+var Index: Integer;
+begin
+ Index := SearchLine(PC, Num);
+ If Index = -1 then Result := nil else Result := PC[Index];
+end;
+
+procedure ClearRec;
+begin
+ FillChar(CallBackRec^, SizeOf(TCallBackRec), 0);
+end;
+
+// Ф-ции экспорта *************************************************************
+
+function CreateHPoint(Obj: hObj; X, Y, Z: Double): hObj;
+begin
+ Result := 0;
+ With CallbackRec^ do
+  If Assigned(CreatePoint) then Result := CreatePoint(Obj, X, Y, Z);
+end;
+
+function SetPointParams(Obj: hObj; Color: Integer; Angle, Scale: Double;
+                         Block: hObj; addParams: String): boolean;
+begin
+ Result := False;
+ With CallBackRec^ do
+  If Assigned(SetPointParams) then
+   Result := SetPointParams(Obj, Color, Angle, Scale, Block, PChar(addParams));
+end;
+
+function FindHBlock(Obj: hObj; blockName: String): hObj;
+begin
+ Result := 0;
+ With CallBackRec^ do
+  If Assigned(FindBlock) then Result := FindBlock(Obj, PChar(blockName));
+end;
+
+function CreateHBlock(Obj: hObj; blockName: String; X, Y, Z: Double): hObj;
+begin
+ Result := 0;
+ With CallBackRec^ do
+  If Assigned(CreateBlock) then Result := CreateBlock(Obj, PChar(blockName), X, Y, Z);
+end;
+
+function FindBlockHAttrib(Obj: hObj; attrName: String): hObj;
+begin
+ Result := 0;
+ With CallBackRec^ do
+  If Assigned(FindAttrib) then Result := FindAttrib(Obj, PChar(attrName));
+end;
+
+function CreatePointHAttrib(Obj, blockText: hObj; X, Y, Z, Height, Angle: Double; Value: String): hObj;
+begin
+ Result := 0;
+ With CallBackRec^ do
+  If Assigned(CreateAttrib) then
+   Result := CreateAttrib(Obj, blockText, X, Y, Z, Height, Angle, PChar(Value));
+end;
+
+function CreatePointHAttrValue(Obj, blockText: hObj; Value: String): hObj;
+begin
+ Result := 0;
+ With CallBackRec^ do
+  If Assigned(CreateAttrValue) then
+   Result := CreateAttrValue(Obj, blockText, PChar(Value));
+end;
+
+function AddPrimitive(Obj: hObj; Prim: Integer): boolean;
+begin
+ Result := False;
+ If Prim = 0 then exit;
+ With CallBackRec^ do
+  If Assigned(AddPrimitive) then Result := AddPrimitive(Obj, Prim);
+end;
+
+function ResetObject(var Obj: hObj): hObj;
+begin
+ Result := Obj;
+ With CallBackRec^ do
+  If Assigned(DestroyObject) then Result := ResetObject(Obj);
+end;
+
+function DestroyObject(Obj: hObj): hObj;
+begin
+ Result := Obj;
+ With CallBackRec^ do
+  If Assigned(DestroyObject) then Result := DestroyObject(Obj);
+end;
+
+procedure WriteStr(Params: Array of Const);
+begin
+ With CallBackRec^ do
+  if Assigned(WriteString) then WriteString(PChar(Fmt(Params)));
+end;
+
+// примитивы для создания hPrim и добавления в hObject
+
+function CreatePolyLine(Obj: hObj; Count: Integer; Points: PGeoPoint; penColor : Integer; lineWidth: Double;
+                              LineType: Integer; useColor: boolean; addParams: PChar): hObj; stdcall;
+begin
+ With CallBackRec^ do
+  if Assigned(CreatePolyLine) then
+   Result := CreatePolyLine(Obj, Count, Points, penColor, lineWidth, LineType, useColor, addParams);
+end;
+
+function CreateMPolyLine(Obj: hObj; penColor : Integer; lineWidth: Single; LineType: Integer;
+                              useColor: boolean; addParams: PChar): hObj ; stdcall;
+begin
+ With CallBackRec^ do
+  if Assigned(CreateMPolyLine) then
+   Result := CreateMPolyLine(Obj, penColor, lineWidth, LineType, useColor, addParams);
+end;
+
+function CreatePolygon(Obj: hObj;  ptCount: Integer; Points: PGeoPoint;
+                                   brushColor : Integer; useColor: boolean;
+                                    addParams: PChar): hObj; stdcall;
+begin
+ With CallBackRec^ do
+  if Assigned(CreatePolygon) then
+   Result := CreatePolygon(Obj, ptCount, Points, brushColor, useColor, addParams);
+end;
+
+function CreateMPolygon(Obj: hObj; brushColor : Integer; useColor: boolean;addParams: PChar): hObj; stdcall;
+begin
+ With CallBackRec^ do
+  if Assigned(CreateMPolygon) then
+   Result := CreateMPolygon(Obj, brushColor, useColor, addParams);
+end;
+
+function FindLineType(Obj: hObj; LineTypeName: PChar): hObj; stdcall;
+begin
+ With CallBackRec^ do
+  if Assigned(FindLineType) then
+   Result := FindLineType(Obj, LineTypeName);
+end;
+
+function CreateLineType(Obj: hObj; LineTypeName: PChar): hObj; stdcall;
+begin
+ With CallBackRec^ do
+  if Assigned(CreateLineType) then
+   Result := CreateLineType(Obj, LineTypeName);
+end;
+
+// Интерфейсные ф-ции *********************************************************
+
+function OpenGMF(AppMainForm: TForm; FileName: String; CallbackRec_: PCallbackRec): Integer; stdcall;
+var TwgForm: TForm2; Stream: TBufStream;
+    oldSelector: TSelector;
+    Lot: TLot;
+    I, J, K: Integer;
+    B: Byte;
+    PD: TPointDot;
+    Sign: TPoint_Sign;
+    DT: TDotText;
+    propStr: String;
+    hObject, hPoint, hBlock: hObj;
+Function CreatePointBlock(P: TGeoBlock): hObj;
+var Geometry: TGeometryEvents;
+    hBlock: hObj;
+procedure CreateAttribs;
+var I: Integer; hAttr: hObj;
+begin
+// атрибуты P.txtProperties -> TogsTextParams
+ If P.txtProperties <> nil then
+  For I := 0 to P.txtProperties.Count -1 do begin
+  // поиск атрибута в блоке, если найден -> устанавливаем параметры
+   hAttr := FindBlockHAttrib(hBlock, P.txtProperties[I].PropName);
+   If hAttr <> 0 then
+    CreatePointHAttrValue(hPoint, hAttr, P.txtProperties[I].PropValue.Value);
+   // сбрасываем hAttr
+    ResetObject(hAttr);
+  end;
+end;
+begin
+// поиск блока в библиотеке
+ hBlock := FindHBlock(hObject, P.Name);
+ If hBlock <> 0 then CreateAttribs else begin
+// создаем блок
+// WriteStr(Fmt(['BlockName = ',P.Name,P.X, P.Y]));
+  hBlock := CreateHBlock(hObject, P.Name, P.X, P.Y, 0);
+  If hBlock <> 0 then begin
+   Geometry := TGeometryEvents.Create(hBlock, CallbackRec.PolyEvent, CallbackRec.TextEvent);
+    P.DrawTo(Geometry);
+   Geometry.Free;
+   CreateAttribs;
+ // WriteStr(Fmt(['BlockRect=',Result.ogsRect]));
+  end;
+ end;
+ Result := hBlock;
+// сбрасываем hBlock
+// ResetObject(hBlock);
+end;
+Function CreatePointSign(P: TPoint_Sign; inLineType: Boolean): hObj;
+var Geometry: TGeometryEvents;
+    hBlock: hObj;
+procedure CreateAttribs;
+var I: Integer;
+    dwgText: TDWG_Text;
+    hAttr: hObj;
+begin
+// атрибуты PD.TTextManaeger -> TTextParam
+ If (not inLineType) and (PD.TextManager <> nil) then
+  For I := 0 to PD.TextManager.FValues.Count - 1 do
+   With TTextParams(PD.TextManager.FValues[I]) do begin
+    dwgText := PD.TextManager.FTexts[I];
+   // поиск аттрибута в TGM9FBlock
+    hAttr := FindBlockHAttrib(hBlock, dwgText.fName);
+    If hAttr <> 0 then begin
+    // создаем KeepObject -> добавляяем его в Point.Attributes
+     If ShiftX <> 0 then
+      CreatePointHAttrib(hPoint, hAttr, ShiftX, ShiftY, 0, fH, fUgol, fValue) else
+      CreatePointHAttrib(hPoint, hAttr, fDx, fDy, 0, fH, fUgol, fValue);
+    end;
+    ResetObject(hAttr);
+   end;
+end;
+begin
+ // поиск блока в библиотеке
+ hBlock := FindHBlock(hObject, P.MyNameIs);
+ If hBlock <> 0 then CreateAttribs else begin
+// создаем блок
+// WriteIn(['SignNAme=',P.MyNameIs, P.MyInd, P.X, P.Y]);
+  hBlock := CreateHBlock(hObject, P.MyNameIs, P.X, P.Y, 0);
+  If hBlock <> 0 then begin
+   Geometry := TGeometryEvents.Create(hBlock, CallbackRec.PolyEvent, CallbackRec.TextEvent);
+    P.DrawTo(Geometry);
+   Geometry.Free;
+   CreateAttribs;
+  end;
+ end;
+ Result := hBlock;
+// сбрасываем hBlock
+// ResetObject(hBlock);
+end;
+begin
+ CallbackRec := CallBackRec_;
+ HObject := CallbackRec.HObject;
+  WriteStr(['Prepare load...', AppMainForm.Name]);
+ Stream := TBufStream.InitFileStream(FileName, fmOpenRead);
+ oldSelector:=TSelector.Create;
+ oldSelector.GNForm := AppMainForm;
+ oldSelector.GCanvas := AppMainForm.Canvas;
+ ApplicationMainForm := AppMainForm;
+ Stream.Selector:=oldSelector;
+ WriteIn(['Loading > ',TimeToStr(Now)]);
+ TwgForm:=TForm2(Stream.Get);
+ Stream.Free;
+ WriteIn(['Loaded > ',TimeToStr(Now)]);
+// создаем объекты для отображения
+ WriteIn(['LotsCount =',TwgForm.Twigs.LotsLarge.Count,
+                          TwgForm.Twigs.TwigsLarge.Count, TwgForm.Twigs.AnyLarge.Count]);
+// связывание
+ TwgForm.ClassbuildII;
+ WriteIn(['Built']);
+// грузим площадные/линейные с ogsProperties
+//
+// загружаем точечные, передаем знак из библиотеки
+// CallbackRecWriteIn(['Selector0=',Selector.ogsRect]);
+ For I := 0 to TwgForm.Twigs.AnyCount -1 do begin
+  PD:= TwgForm.Twigs.AAt(I, B);
+//  CallbackRecWriteIn(['Point =',I]);
+  If PD is TDotText then begin
+     DT := PD as TDotText;
+   (*txtString := TogsTextString.Create(Selector, FC, DT.XDot, DT.YDot, 0, DT.Text.Height,
+                                      DT.Ugol, DT.XKoef, AlignText(DT.Text.Align), DT.Text.Text, DT.Text.AttrName, False);
+   txtString.CreateSysProperties(Fmt(['{"System": {"Color" :', DT.Text.Color,', "Text" :',DT.Text.Text,', "FontName" :',DT.Text.fontView.FontName,'}}']));
+   txtString.Calculate([calcbBox]);
+   Selector.AddPrim(txtString);
+   Prims.Add(txtString);*)
+   continue;
+  end;
+ // создаем дескриптор точки
+  hPoint := CreateHPoint(hObject, PD.XDot, PD.YDot, PD.Z);
+  If hPoint <> 0 then begin
+ //
+   If PD.userObj <> nil then begin
+  // формируем json - строку для отображения системных свойств
+    propStr := Fmt(['{"System": {"Color" :', PD.PointColor,',"Block" :',
+                                      TGeoBlock(PD.userobj).Name,'}}']);
+  // экспортируем блок по примитивам
+    hBlock := CreatePointBlock(PD.userObj as TGeoBlock);
+  // устанавливаем свойства точки
+    If SetPointParams(hPoint, PD.PointColor, PD.Ugol, PD.XKoef, hBlock, PChar(propStr)) then
+     AddPrimitive(hObject, hPoint);
+    ResetObject(hPoint);
+    ResetObject(hBlock);
+   end else begin
+  // без блока, предполагаем, что есть условный знак
+    propStr := Fmt(['{"System": {"Color" :', PD.PointColor,', "Sign" :',PD.GetZnak,'}}']);
+    Sign := SearchPointSign(oldSelector.GPointCol, PD.GetZnak);
+    // устанавливаем свойства точки
+     If Sign <> nil then begin
+     // экспортируем знак по примитивам
+      hBlock := CreatePointSign(Sign, False);
+      AddPrimitive(hObject, hPoint);
+     end else
+      hBlock := 0;
+     If SetPointParams(hPoint, PD.PointColor, PD.Ugol, PD.Koef, hBlock, PChar(propStr)) then
+      AddPrimitive(hObject, hPoint);
+     ResetObject(hPoint);
+     ResetObject(hBlock);
+    end;
+  end;
+ // разбираем условный знак на примитивы
+ // CallbackRec.WriteIn(['PointEnd =',I]);
+ end;
+ WriteIn(['UpdateObj']);
+ CallbackRec.UpdateObject(hObject, True);
+ WriteIn(['Translated > ', TimeToStr(Now)]);
+ TwgForm.Free;
+end;
+
+exports OpenGMF;
+
+begin
+  Writeln('GMFLib.dll -> Started...');
+end.
+

@@ -1,0 +1,112 @@
+library DWGGL2project;
+
+//{$mode objfpc}{$H+}
+{$mode delphi}{$H+}
+
+uses
+  Classes, Interfaces, SysUtils, Forms, Dialogs, ogcCallBackRec, ogcCallBackTypes, libProcs, ogcWriter; //DWGLLib,LazLoggerBase, ogcCallBackRec
+
+
+//function OpenGMF2(AppHandle: THandle; FileName: String; CallbackRec_: PCallbackRec): Integer; stdcall;
+
+function OpenGMF2(AppHandle: THandle; FileName: String; CallbackRec_: PCallbackRec): Integer; stdcall;
+var //CallbackRec: PCallbackRec;
+    propStr: String;
+    K:integer;
+    GeoPoint, rootP:PGeoPoint;
+   //
+    hObject, hPoint, hBlock, Line, mLine, hText, Poly, mPoly, hLineType: hObj;
+begin
+// структура с процедурами обратного вызова из вызывающей программы
+ CallbackRec := CallBackRec_;
+// инициализация Application.Handle := AppHandle
+ //InitAppCallback;
+//
+ HObject := CallbackRec.HObject;
+ WriteIn(['HObject > ', HObject]);
+
+ //Lot.LotLineColor Lot.csLineZnak
+// создание полилинии
+ propStr := Fmt(['{"System": {"Type" : "Polyline", "Color" :555, "Sign" :3}}']);
+ // -----------------
+
+{
+ New(GeoPoint); rootP := GeoPoint;
+   For K := 0 to Lot.Points.Count - 1 do With TDot(Lot.Points[K]) do begin
+    If K = 0 then GeoPoint.Create(XDot, YDot, 0) else begin
+                  GeoPoint.AddPoint(XDot, YDot, 0);
+                  GeoPoint := GeoPoint.Next;
+                 end;
+    end;
+  rootP.Count := Lot.Points.Count;
+  }
+
+    New(GeoPoint); rootP := GeoPoint;
+    //For K := 0 to Lot.Points.Count - 1 do With TDot(Lot.Points[K]) do begin
+    //If K = 0 then
+    GeoPoint.Create(0, 0, 0); //else begin
+    //GeoPoint.AddPoint(0, 0, 0);
+    //GeoPoint := GeoPoint.Next;
+
+    //GeoPoint.Create(0, 100, 0); //else begin
+    GeoPoint.AddPoint(0, 100, 0);
+    GeoPoint := GeoPoint.Next;
+
+    //GeoPoint.Create(100, 100, 0); //else begin
+    GeoPoint.AddPoint(100, 100, 0);
+    GeoPoint := GeoPoint.Next;
+
+    //GeoPoint.Create(100, 0, 0); //else begin
+    GeoPoint.AddPoint(100, 0, 0);
+    GeoPoint := GeoPoint.Next;
+    //end;
+    //end;
+
+   rootP.Count := 4;//Lot.Points.Count;
+
+   WriteIn(['Loading > ',TimeToStr(Now)]);
+   WriteIn(['Hello > ',TimeToStr(Now)]);
+ // ------------------
+  Line := CreatePolyLine(hObject, rootP, 255, 0, 0, True, PChar(propStr));
+  //
+  Poly := CreatePolygon(hObject, 555, True, PChar(propStr));
+          //CreatePolygon(Obj: hObj; brushColor : Integer; useColor: boolean; addParams: PChar): hObj; stdcall;
+  //if
+  AddPolyPoints(Poly, rootP); //then
+  ///------------------------------
+//   If PD is TDotText then begin
+ //  DT := PD as TDotText;
+  // WriteIn(['=nil=',DT.Text.fontView.FontName, DT.XDot, DT.Text.AttrName,DT.Text.Text]);
+ //  propStr := Fmt(['{"System": {"Color" :', DT.Text.Color,', "Text" :',DT.Text.Text,', "FontName" :',DT.Text.fontView.FontName,'}}']);
+ //  hText := CreateText(hObject, DT.XDot, DT.YDot, 0, PChar(DT.Text.fontView.FontName), DT.Text.Height,
+   //                      DT.Ugol, DT.XKoef, DT.Text.Color, DT.Text.Align,
+  //                       False, False, False, PChar(DT.Text.Text), PChar(DT.Text.AttrName), PChar(propStr));
+  // If hText <> 0 then
+   // AddPrimitive(hObject, hText);
+  // continue;
+ // end;
+
+
+  //////-------------------
+
+ //
+  rootP.FreeAll;
+  Dispose(rootP);
+ //
+ //if Line = 0 then continue;
+ //
+ AddPrimitive(hObject, Line);
+ AddPrimitive(hObject, Poly);
+// завершение построений
+ CallbackRec.UpdateObject(hObject, True);
+
+end;
+
+
+exports
+  OpenGMF2;
+begin
+
+ WriteIn(['StartIn']);
+ Writeln('StartDLL');
+end.
