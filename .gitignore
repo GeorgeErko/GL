@@ -9,6 +9,9 @@ auto-generated
 !*.ctps
 !.gitignore
 
+theGrapher.ctps
+lib/
+
 libTess2/
 
 python4delphi-master/
