@@ -627,6 +627,12 @@ function TgmfBlock.Calculate(Action: TCalcActionSet): Integer;
 var I: Integer;
 begin
  Result := Geometry.Calculate(Action);
+ if calcTess in Action then
+  for I := 0 to Geometry.Count - 1 do
+  begin
+   if (Geometry.Item[I] is TogsPolygon) or (Geometry.Item[I] is TogsMultiPolygon) then
+    Geometry.Item[I].Calculate([calcTess]);
+  end;
  If calcbBox in Action then ogsRect.Sect := Geometry.ogsRect.Sect;
  If calcSortBy in Action then
  // сортируем по площадям примитивов, аналогично GMF

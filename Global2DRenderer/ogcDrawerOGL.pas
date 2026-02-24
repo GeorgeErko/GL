@@ -717,11 +717,7 @@ end;
 procedure TDrawerOGL.BeginObject(AObjectId: TGLObjectId);
 begin
  FCurObjectId := AObjectId;
- if (FIndexer <> nil) and (AObjectId <> 0) then
- begin
-  if not FIndexer.TryGetObjectTiles(AObjectId, FCurObjectTiles) then SetLength(FCurObjectTiles, 0);
- end else
-  SetLength(FCurObjectTiles, 0);
+ SetLength(FCurObjectTiles, 0);
 end;
 
 procedure TDrawerOGL.EndObject;
@@ -741,6 +737,7 @@ begin
  glUseProgram(FProgram);
  GetMVP(MVP);
  if FLocMVP >= 0 then glUniformMatrix4fv(FLocMVP, 1, GL_FALSE, @MVP[0]);
+ // Pass 1: draw ALL fills first, so fills from later tiles cannot cover lines from earlier tiles
  for i := 0 to FTileCount - 1 do
  begin
   if (Length(FTileFillVBO) > i) and (FTileFillVBO[i] <> 0) and
@@ -759,6 +756,11 @@ begin
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
    if (Length(FTileFillVAO) > i) and (FTileFillVAO[i] <> 0) then glBindVertexArray(0);
   end;
+ end;
+
+ // Pass 2: draw ALL lines after fills, so lines are always on top of fills
+ for i := 0 to FTileCount - 1 do
+ begin
   if (Length(FTileVBO) <= i) or (FTileVBO[i] = 0) then Continue;
   if (FTileVertCount[i] <= 0) or (Length(FTileIBO) <= i) or (FTileIBO[i] = 0) or (FTileIndCount[i] <= 0) then Continue;
   if (Length(FTileVAO) > i) and (FTileVAO[i] <> 0) then glBindVertexArray(FTileVAO[i]);
@@ -778,34 +780,41 @@ end;
 
 procedure TDrawerOGL.RenderTilesOverlay;
 var
- i: Integer;
  tx, ty: LongInt;
+ tx0, ty0, tx1, ty1: LongInt;
  x0, y0, x1, y1: Double;
  s: Double;
  oldForce: Boolean;
  oldColor: TColor;
+ gRect: TogsRect;
 begin
  if (FIndexer = nil) then Exit;
  s := FIndexer.TileSize;
  if s <= 0 then Exit;
+ gRect := nil;
+ if (ogsSelector <> nil) then gRect := ogsSelector.GlobalRect;
+ if gRect = nil then Exit;
  oldForce := FForceColor;
  oldColor := FForcedColor;
  FForceColor := True;
  FForcedColor := clSilver;
  try
-  for i := 0 to FTileCount - 1 do
-  begin
-   tx := LongInt(FTileIds[i] shr 32);
-   ty := LongInt(FTileIds[i] and $FFFFFFFF);
-   x0 := tx * s;
-   y0 := ty * s;
-   x1 := x0 + s;
-   y1 := y0 + s;
-   DrawLine(x0, y0, x1, y0, True);
-   DrawLine(x1, y0, x1, y1, True);
-   DrawLine(x1, y1, x0, y1, True);
-   DrawLine(x0, y1, x0, y0, True);
-  end;
+  tx0 := Floor(Min(gRect.XMin, gRect.XMax) / s);
+  tx1 := Floor(Max(gRect.XMin, gRect.XMax) / s);
+  ty0 := Floor(Min(gRect.YMin, gRect.YMax) / s);
+  ty1 := Floor(Max(gRect.YMin, gRect.YMax) / s);
+  for ty := ty0 to ty1 do
+   for tx := tx0 to tx1 do
+   begin
+    x0 := tx * s;
+    y0 := ty * s;
+    x1 := x0 + s;
+    y1 := y0 + s;
+    DrawLine(x0, y0, x1, y0, True);
+    DrawLine(x1, y0, x1, y1, True);
+    DrawLine(x1, y1, x0, y1, True);
+    DrawLine(x0, y1, x0, y0, True);
+   end;
   Flush;
  finally
   FForceColor := oldForce;
@@ -898,37 +907,15 @@ begin
   V.X := X;
   V.Y := Y;
   ApplyVertexColor(V);
-  if FBuildingScene and (Length(FCurObjectTiles) > 0) then
-  begin
-   for t := 0 to Length(FCurObjectTiles) - 1 do
-   begin
-    tileIndex := FindOrAddTile(FCurObjectTiles[t]);
-    TileAddVertex(tileIndex, V);
-    TileAddIndex(tileIndex, GLuint(FTileVertUsed[tileIndex] - 1));
-   end;
-  end else
-  begin
-   EnsureCapacity(1);
-   FVerts[FVertCount] := v;
-   Inc(FVertCount);
-  end;
+  tileIndex := FindOrAddTile(0);
+  TileAddVertex(tileIndex, V);
+  TileAddIndex(tileIndex, GLuint(FTileVertUsed[tileIndex] - 1));
   v.X := X1;
   v.Y := Y1;
   ApplyVertexColor(v);
-  if FBuildingScene and (Length(FCurObjectTiles) > 0) then
-  begin
-   for t := 0 to Length(FCurObjectTiles) - 1 do
-   begin
-    tileIndex := FindOrAddTile(FCurObjectTiles[t]);
-    TileAddVertex(tileIndex, v);
-    TileAddIndex(tileIndex, GLuint(FTileVertUsed[tileIndex] - 1));
-   end;
-  end else
-  begin
-   EnsureCapacity(1);
-   FVerts[FVertCount] := v;
-   Inc(FVertCount);
-  end;
+  tileIndex := FindOrAddTile(0);
+  TileAddVertex(tileIndex, v);
+  TileAddIndex(tileIndex, GLuint(FTileVertUsed[tileIndex] - 1));
   Exit;
  end;
  X_ := X;
@@ -989,35 +976,32 @@ begin
  end;
  if not cutRequest then
  begin
-  if FBuildingScene and (Length(FCurObjectTiles) > 0) then
+  if FBuildingScene then
   begin
-   for t := 0 to Length(FCurObjectTiles) - 1 do
+   tileIndex := FindOrAddTile(0);
+   base := FTileVertUsed[tileIndex];
+   EnsureTileCapacity(tileIndex, Points.Count);
+   EnsureTileIndexCapacity(tileIndex, (Points.Count - 1) * 2);
+   vu := FTileVertUsed[tileIndex];
+   iu := FTileIndUsed[tileIndex];
+   for i := 0 to Points.Count - 1 do
    begin
-    tileIndex := FindOrAddTile(FCurObjectTiles[t]);
-    base := FTileVertUsed[tileIndex];
-    EnsureTileCapacity(tileIndex, Points.Count);
-    EnsureTileIndexCapacity(tileIndex, (Points.Count - 1) * 2);
-    vu := FTileVertUsed[tileIndex];
-    iu := FTileIndUsed[tileIndex];
-    for i := 0 to Points.Count - 1 do
-    begin
-     p0 := TogsDot(Points[i]);
-     v0.X := p0.fX;
-     v0.Y := p0.fY;
-     ApplyVertexColor(v0);
-     FTileVerts[tileIndex][vu] := v0;
-     Inc(vu);
-    end;
-    for i := 0 to Points.Count - 2 do
-    begin
-     FTileInds[tileIndex][iu] := GLuint(base + i);
-     Inc(iu);
-     FTileInds[tileIndex][iu] := GLuint(base + i + 1);
-     Inc(iu);
-    end;
-    FTileVertUsed[tileIndex] := vu;
-    FTileIndUsed[tileIndex] := iu;
+    p0 := TogsDot(Points[i]);
+    v0.X := p0.fX;
+    v0.Y := p0.fY;
+    ApplyVertexColor(v0);
+    FTileVerts[tileIndex][vu] := v0;
+    Inc(vu);
    end;
+   for i := 0 to Points.Count - 2 do
+   begin
+    FTileInds[tileIndex][iu] := GLuint(base + i);
+    Inc(iu);
+    FTileInds[tileIndex][iu] := GLuint(base + i + 1);
+    Inc(iu);
+   end;
+   FTileVertUsed[tileIndex] := vu;
+   FTileIndUsed[tileIndex] := iu;
    Exit;
   end;
   for i := 1 to Points.Count - 1 do
@@ -1093,35 +1077,42 @@ var
  i: Integer;
  v: TLineVertex;
  idx: GLuint;
+ Matrix: TogsMatrix;
+ useMatrix: Boolean;
 begin
  if Disable then Exit;
  if not FBuildingScene then Exit;
  if (Geom = nil) then Exit;
- if Length(FCurObjectTiles) = 0 then Exit;
  if not (Geom is TogsPolygon) and not (Geom is TogsMultiPolygon) then Exit;
  if Geom is TogsPolygon then tess := TogsPolygon(Geom).ogsTess else tess := TogsMultiPolygon(Geom).ogsTess;
  if Tess = nil then exit;
  if (Length(tess.Vertices) = 0) or (Length(tess.Indices) = 0) then Exit;
- for t := 0 to Length(FCurObjectTiles) - 1 do
+ Matrix := ogsMatrix;
+ useMatrix := Matrix <> nil;
+ tileIndex := FindOrAddTile(0);
+ base := FTileFillVertUsed[tileIndex];
+ EnsureTileFillCapacity(tileIndex, Length(tess.Vertices));
+ EnsureTileFillIndexCapacity(tileIndex, Length(tess.Indices));
+ for i := 0 to Length(tess.Vertices) - 1 do
  begin
-  tileIndex := FindOrAddTile(FCurObjectTiles[t]);
-  base := FTileFillVertUsed[tileIndex];
-  EnsureTileFillCapacity(tileIndex, Length(tess.Vertices));
-  EnsureTileFillIndexCapacity(tileIndex, Length(tess.Indices));
-  for i := 0 to Length(tess.Vertices) - 1 do
+  if useMatrix then
+  begin
+   v.X := xMatrix(Matrix.X, tess.Vertices[i].X, tess.Vertices[i].Y, Matrix.Angle, Matrix.Scale);
+   v.Y := yMatrix(Matrix.Y, tess.Vertices[i].X, tess.Vertices[i].Y, Matrix.Angle, Matrix.Scale);
+  end else
   begin
    v.X := tess.Vertices[i].X;
    v.Y := tess.Vertices[i].Y;
-   ApplyFillVertexColor(v);
-   FTileFillVerts[tileIndex][FTileFillVertUsed[tileIndex]] := v;
-   Inc(FTileFillVertUsed[tileIndex]);
   end;
-  for i := 0 to Length(tess.Indices) - 1 do
-  begin
-   idx := GLuint(base) + GLuint(tess.Indices[i]);
-   FTileFillInds[tileIndex][FTileFillIndUsed[tileIndex]] := idx;
-   Inc(FTileFillIndUsed[tileIndex]);
-  end;
+  ApplyFillVertexColor(v);
+  FTileFillVerts[tileIndex][FTileFillVertUsed[tileIndex]] := v;
+  Inc(FTileFillVertUsed[tileIndex]);
+ end;
+ for i := 0 to Length(tess.Indices) - 1 do
+ begin
+  idx := GLuint(base) + GLuint(tess.Indices[i]);
+  FTileFillInds[tileIndex][FTileFillIndUsed[tileIndex]] := idx;
+  Inc(FTileFillIndUsed[tileIndex]);
  end;
 end;
 

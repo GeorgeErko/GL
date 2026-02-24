@@ -32,6 +32,7 @@ type
   OpenGLPanel1: TOpenGLPanel;
   ODGmf: TOpenDialog;
   PanelTop: TPanel;
+  PBScene: TProgressBar;
   StatusBar1: TStatusBar;
   VLE: TValueListEditor;
   procedure CBTilesClick(Sender: TObject);
@@ -78,7 +79,7 @@ type
 var
  Map2DRenderForm: TMap2DRenderForm;
 
-implementation uses GMFGeometry, dglOpenGL, ogcWriter;
+implementation uses GMFGeometry, dglOpenGL, ogcWriter, Math;
 
 {$R *.frm}
 
@@ -153,19 +154,35 @@ begin
 end;
 
 procedure TMap2DRenderForm.MenuFileOpenClick(Sender: TObject);
+var oldStatus: String;
 begin
  if ODGmf = nil then Exit;
  if not ODGmf.Execute then Exit;
  if (FMapObject = nil) then Exit;
- FMapObject.Clear;
- FMapObject.OpenFile(ODGmf.FileName);
- FSceneDirty := True;
- FTessPrepared := False;
- OpenGLPanel1.Invalidate;
+ oldStatus := '';
+ if StatusBar1 <> nil then
+ begin
+  oldStatus := StatusBar1.SimpleText;
+  StatusBar1.SimpleText := 'Загрузка графики...';
+  StatusBar1.Repaint;
+ end;
+ try
+  FMapObject.Clear;
+  FMapObject.OpenFile(ODGmf.FileName);
+  FSceneDirty := True;
+  FTessPrepared := False;
+  OpenGLPanel1.Invalidate;
 //
- FInspector.Clear;
- FDrawer.ClearDebugLabels;
- ClearSelection;
+ finally
+  FInspector.Clear;
+  FDrawer.ClearDebugLabels;
+  ClearSelection;
+  if StatusBar1 <> nil then
+  begin
+   StatusBar1.SimpleText := oldStatus;
+   StatusBar1.Repaint;
+  end;
+ end;
 end;
 
 procedure TMap2DRenderForm.ClearSelection;
@@ -254,12 +271,16 @@ var
  id: TGLObjectId;
  geom: TogsGeometry;
  cap: TCaptureRec;
+ viewRect: TogsRect;
+ x0, y0, x1, y1: Double;
+ vx0, vy0, vx1, vy1: Double;
 begin
  Result := False;
  PickedId := 0;
  if (FMapObject = nil) or (FMapObject.ogsSelector = nil) then Exit;
  idx := FMapObject.Indexer;
  if (idx = nil) then Exit;
+ viewRect := FMapObject.ogsSelector.ActiveRect;
  gx := FMapObject.ogsSelector.XGeo(XPix);
  gy := FMapObject.ogsSelector.YGeo(YPix);
  idx.QueryObjectsAtPoint(gx, gy, candidates);
@@ -271,6 +292,18 @@ begin
   if (FIdToGeom = nil) or (FIdToGeom.IndexOf(id) < 0) then Continue;
   geom := FIdToGeom.Data[FIdToGeom.IndexOf(id)];
   if geom = nil then Continue;
+  if (viewRect <> nil) and (geom.ogsRect <> nil) then
+  begin
+   x0 := Min(geom.ogsRect.XMin, geom.ogsRect.XMax);
+   x1 := Max(geom.ogsRect.XMin, geom.ogsRect.XMax);
+   y0 := Min(geom.ogsRect.YMin, geom.ogsRect.YMax);
+   y1 := Max(geom.ogsRect.YMin, geom.ogsRect.YMax);
+   vx0 := Min(viewRect.XMin, viewRect.XMax);
+   vx1 := Max(viewRect.XMin, viewRect.XMax);
+   vy0 := Min(viewRect.YMin, viewRect.YMax);
+   vy1 := Max(viewRect.YMin, viewRect.YMax);
+   if (x1 < vx0) or (x0 > vx1) or (y1 < vy0) or (y0 > vy1) then Continue;
+  end;
   cap := CRClearParams;
   if not geom.SelectByPoint(gx, gy, cap) then Continue;
   ordIdx := -1;
@@ -315,6 +348,7 @@ var i: Integer;
     lastUiTick: QWord;
     nowUiTick: QWord;
     oldStatus: String;
+    statusText: String;
 begin
  if FDrawer = nil then Exit;
  if FMapObject = nil then Exit;
@@ -327,9 +361,7 @@ begin
    geom := FMapObject.Geometry.Item[i];
    if geom = nil then Continue;
    if (geom is TogsPolygon) or (geom is TogsMultiPolygon) then
-    geom.Calculate([calcTess]) else
-     if (geom is TogsPoint) then
-      geom.Calculate([calcTess]);
+    geom.Calculate([calcTess]);
   end;
   FTessPrepared := True;
  end;
@@ -337,6 +369,17 @@ begin
  fs := DefaultFormatSettings;
  fs.DecimalSeparator := '.';
  idx := FMapObject.Indexer;
+ if (idx <> nil) and (FMapObject.ogsSelector <> nil) and (FMapObject.ogsSelector.GlobalRect <> nil) then
+ begin
+  gRect := FMapObject.ogsSelector.GlobalRect;
+  xm := gRect.XMax - gRect.XMin;
+  ym := gRect.YMax - gRect.YMin;
+  if (xm > 0) or (ym > 0) then
+  begin
+   idx.TestSplit4 := False;
+   idx.TileSize := 500.0;
+  end;
+ end;
  if idx <> nil then idx.Clear;
  if FIdToGeom <> nil then FIdToGeom.Clear;
  if FIdToOrder <> nil then FIdToOrder.Clear;
@@ -346,11 +389,19 @@ begin
  if StatusBar1 <> nil then oldStatus := StatusBar1.SimpleText;
  total := 0;
  if (FMapObject.Geometry <> nil) then total := FMapObject.Geometry.Count;
+ if PBScene <> nil then
+ begin
+  PBScene.Min := 0;
+  PBScene.Max := total;
+  PBScene.Position := 0;
+  PBScene.Visible := True;
+ end;
  lastUiTick := GetTickCount64;
  if (FMapObject.Geometry <> nil) then
   for i := 0 to FMapObject.Geometry.Count - 1 do
   begin
    geom := FMapObject.Geometry.Item[i];
+  // WriteIn([i, geom.ClassName]);
    if geom <> nil then
    begin
     geom.RenderOrder := i;
@@ -368,9 +419,11 @@ begin
     nowUiTick := GetTickCount64;
     if (nowUiTick - lastUiTick) >= 100 then
     begin
-     if total > 0 then StatusBar1.SimpleText := Format('BuildScene %d/%d (%.1f%%)', [i + 1, total, (i + 1) * 100.0 / total])
-     else StatusBar1.SimpleText := Format('BuildScene %d', [i + 1]);
+     if total > 0 then statusText := Format('BuildScene %d/%d (%.1f%%)', [i + 1, total, (i + 1) * 100.0 / total])
+     else statusText := Format('BuildScene %d', [i + 1]);
+     StatusBar1.SimpleText := statusText;
      StatusBar1.Repaint;
+     if (PBScene <> nil) and (PBScene.Visible) then PBScene.Position := i + 1;
      lastUiTick := nowUiTick;
     end;
    end;
@@ -441,11 +494,12 @@ begin
    end;
 
    if (idx <> nil) and (geom <> nil) then
-   begin
-    idx.AddObject(id, geom.ogsRect);
-    if (FIdToGeom <> nil) and (FIdToGeom.IndexOf(id) < 0) then FIdToGeom.Add(id, geom);
-    if (FIdToOrder <> nil) and (FIdToOrder.IndexOf(id) < 0) then FIdToOrder.Add(id, i);
-   end;
+  begin
+   geom.Calculate([calcbBox]);
+   idx.AddObject(id, geom.ogsRect);
+   if (FIdToGeom <> nil) and (FIdToGeom.IndexOf(id) < 0) then FIdToGeom.Add(id, geom);
+   if (FIdToOrder <> nil) and (FIdToOrder.IndexOf(id) < 0) then FIdToOrder.Add(id, i);
+  end;
 
    if geom <> nil then
    begin
@@ -461,6 +515,7 @@ begin
   StatusBar1.SimpleText := oldStatus;
   StatusBar1.Repaint;
  end;
+ if PBScene <> nil then PBScene.Visible := False;
 end;
 
 procedure TMap2DRenderForm.Render;
@@ -588,6 +643,14 @@ begin
   begin
    if not ((ssCtrl in Shift) or (ssShift in Shift)) then ClearSelection;
   end;
+  if OpenGLPanel1 <> nil then OpenGLPanel1.Invalidate;
+  Exit;
+ end;
+ if (Button = mbMiddle) and (ssDouble in Shift) then
+ begin
+  ReleaseCapture;
+  if (FMapObject <> nil) and (FMapObject.ogsSelector <> nil) then
+   FMapObject.ogsSelector.UpdateRects(True);
   if OpenGLPanel1 <> nil then OpenGLPanel1.Invalidate;
   Exit;
  end;

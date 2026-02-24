@@ -618,9 +618,6 @@ end;
 function TogsSymbol.Calculate(Action: TCalcActionSet): Integer;
 var oldSect: TSect;
     Matrix: TogsMatrix;
-    srcTess: TogsTess;
-    i: Integer;
-    baseX, baseY: Double;
 begin
  If calcbBox in Action then begin
  // перевычисление габаритов символа
@@ -636,23 +633,8 @@ begin
  end;
  If calcTess in Action then
  begin
+  FreeAndNil(fSymbolTess);
   if fSymbol.ogsTess = nil then fSymbol.Calculate([calcTess]);
-  srcTess := fSymbol.ogsTess;
-  if srcTess <> nil then begin
-   try
-    baseX := X;
-    baseY := Y;
-    FreeAndNil(fSymbolTess);
-    fSymbolTess := TogsTess.CreateAs(srcTess);
-    if ogsMatrix <> nil then
-     for i := 0 to Length(fSymbolTess.Vertices) - 1 do begin
-      fSymbolTess.Vertices[i].X := xMatrix(baseX, srcTess.Vertices[i].X, srcTess.Vertices[i].Y, ogsMatrix.Angle, ogsMatrix.Scale);
-      fSymbolTess.Vertices[i].Y := yMatrix(baseY, srcTess.Vertices[i].X, srcTess.Vertices[i].Y, ogsMatrix.Angle, ogsMatrix.Scale);
-     end;
-   except
-    FreeAndNil(fSymbolTess);
-   end;
-  end;
  end;
 end;
 
@@ -677,6 +659,7 @@ begin
   oldSect:= fSymbol.ogsRect.Sect;
   fSymbol.Calculate([calcbBox]);
 //  With fSymbol.ogsRect do WriteIn(['next "',fChar,'"',XMin, YMin, XMax, YMax]);
+  if fSymbol.ogsTess = nil then fSymbol.Calculate([calcTess]);
   oldTess := fSymbol.ogsTess;
   if fSymbolTess <> nil then fSymbol.ogsTess := fSymbolTess;
   fSymbol.Draw(Drawer);

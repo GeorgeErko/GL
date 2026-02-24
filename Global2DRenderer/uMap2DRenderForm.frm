@@ -30,6 +30,16 @@ object Map2DRenderForm: TMap2DRenderForm
       TabOrder = 0
     end
   end
+  object PBScene: TProgressBar
+    Left = 435
+    Height = 16
+    Top = 5
+    Width = 352
+    Anchors = [akTop, akRight]
+    Smooth = True
+    TabOrder = 4
+    Visible = False
+  end
   object OpenGLPanel1: TOpenGLPanel
     Left = 280
     Height = 527
@@ -48,6 +58,7 @@ object Map2DRenderForm: TMap2DRenderForm
     Top = 557
     Width = 800
     Panels = <>
+    SimplePanel = True
   end
   object VLE: TValueListEditor
     Left = 0
