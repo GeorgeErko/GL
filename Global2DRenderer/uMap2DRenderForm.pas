@@ -9,9 +9,9 @@ uses
  StdCtrls,
  Types, LCLIntf,
  ComCtrls,
- Menus, ValEdit,
+ Menus, ValEdit, Buttons,
  fgl,
- ogcBasic, ogcDrawerOGL, ogcMapObject, uGLSceneIndexer, ogcProperties,
+ ogcBasic, ogcRegistry, ogcDrawerOGL, ogcMapObject, uGLSceneIndexer, ogcProperties,
  ogcGeometry,
  ogcInspector;
 
@@ -24,17 +24,19 @@ type
  { TMap2DRenderForm }
 
  TMap2DRenderForm = class(TForm)
-  CBTiles: TCheckBox;
+  cbTiles: TCheckBox;
+  MenuItem2: TMenuItem;
+  pnlTop: TPanel;
+  pnlBottom: TPanel;
+  PBScene: TProgressBar;
   ImgList: TImageList;
   MainMenu1: TMainMenu;
   MenuFile: TMenuItem;
   MenuFileOpen: TMenuItem;
   OpenGLPanel1: TOpenGLPanel;
   ODGmf: TOpenDialog;
-  PanelTop: TPanel;
-  PBScene: TProgressBar;
-  StatusBar1: TStatusBar;
-  VLE: TValueListEditor;
+  propEditor: TValueListEditor;
+  sbOpen: TSpeedButton;
   procedure CBTilesClick(Sender: TObject);
   procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
   procedure FormCreate(Sender: TObject);
@@ -45,6 +47,7 @@ type
   procedure OpenGLPanel1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
   procedure OpenGLPanel1MouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
   procedure OpenGLPanel1MouseWheel(Sender: TObject; Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+  procedure OpenGLPanel1Click(Sender: TObject);
  private
   FDrawer: TDrawerOGL;
   FMapObject: TogsMapObject;
@@ -63,6 +66,7 @@ type
   FIdToGeom: TIdToGeomMap;
   FIdToOrder: TIdToOrderMap;
   FLastPickedId: TGLObjectId;
+  FCurrentGmfFile: String;
   procedure BuildScene;
   procedure Render;
   procedure RenderSelectionOverlay;
@@ -74,6 +78,9 @@ type
   function PickObjectIdAt(XPix, YPix: Integer; out PickedId: TGLObjectId): Boolean;
   procedure UpdateInspectorForSelection;
  public
+  OwnerForm: TForm;
+  function CurrentGmfFile: String;
+  procedure OpenGmfFile(const FileName: String);
  end;
 
 var
@@ -83,13 +90,115 @@ implementation uses GMFGeometry, dglOpenGL, ogcWriter, Math;
 
 {$R *.frm}
 
+const
+  REG_FILE_NAME = 'theGrapher.reg';
+  REG_KEY_LAST_DIR_GMF = 'Dialogs\Map2D\LastDirGmf';
+
+function RegistryFileName: String;
+begin
+  Result := ExtractFilePath(Application.ExeName) + REG_FILE_NAME;
+end;
+
+function LoadLastDirGmf: String;
+var
+  reg: TogsVarRegistry;
+  st: TogsStream;
+  fn: String;
+begin
+  Result := '';
+  reg := TogsVarRegistry.Create;
+  try
+    fn := RegistryFileName;
+    if FileExists(fn) then
+    begin
+      st := TogsStream.CreateFileStream(fn, fmOpenRead or fmShareDenyWrite, nil);
+      try
+        if st.Size > 0 then
+          reg.LoadFromStream(st);
+      finally
+        st.Free;
+      end;
+    end;
+    Result := String(reg.GetStr(REG_KEY_LAST_DIR_GMF, ''));
+  finally
+    reg.Free;
+  end;
+end;
+
+function TMap2DRenderForm.CurrentGmfFile: String;
+begin
+  Result := FCurrentGmfFile;
+end;
+
+procedure TMap2DRenderForm.OpenGmfFile(const FileName: String);
+begin
+  if (FileName = '') or (not FileExists(FileName)) then Exit;
+  if FMapObject = nil then Exit;
+
+  FCurrentGmfFile := FileName;
+
+  pnlBottom.Caption := 'Загрузка графики...';
+  pnlBottom.Update;
+  try
+    FMapObject.Clear;
+    FMapObject.OpenFile(FCurrentGmfFile);
+    FSceneDirty := True;
+    FTessPrepared := False;
+    if OpenGLPanel1 <> nil then
+      OpenGLPanel1.Invalidate;
+  finally
+    if FInspector <> nil then
+      FInspector.Clear;
+    if FDrawer <> nil then
+      FDrawer.ClearDebugLabels;
+    ClearSelection;
+    pnlBottom.Caption := '';
+    pnlBottom.Update;
+  end;
+end;
+
+procedure SaveLastDirGmf(const Dir: String);
+var
+  reg: TogsVarRegistry;
+  st: TogsStream;
+  fn: String;
+begin
+  if Dir = '' then Exit;
+  reg := TogsVarRegistry.Create;
+  try
+    fn := RegistryFileName;
+    if FileExists(fn) then
+    begin
+      st := TogsStream.CreateFileStream(fn, fmOpenRead or fmShareDenyWrite, nil);
+      try
+        if st.Size > 0 then
+          reg.LoadFromStream(st);
+      finally
+        st.Free;
+      end;
+    end;
+
+    reg.SetStr(REG_KEY_LAST_DIR_GMF, AnsiString(Dir));
+
+    st := TogsStream.CreateFileStream(fn, fmCreate or fmShareDenyWrite, nil);
+    try
+      reg.SaveToStream(st);
+    finally
+      st.Free;
+    end;
+  finally
+    reg.Free;
+  end;
+end;
+
 procedure TMap2DRenderForm.FormCreate(Sender: TObject);
 begin
+ Menu := nil;
  FDrawer := TDrawerOGL.Create(nil, OpenGLPanel1, @OpenGLPanel1Paint);
  FMapObject := TogsMapObject.Create(FDrawer);
  FDrawer.ogsSelector := FMapObject.ogsSelector;
  if (FMapObject.Indexer <> nil) then FMapObject.Indexer.TestSplit4 := True;
- if CBTiles <> nil then CBTiles.Checked := FDrawer.ShowTiles;
+ cbTiles.Checked := FDrawer.ShowTiles;
  FGLInited := False;
  FPainting := False;
  FSceneDirty := True;
@@ -104,13 +213,14 @@ begin
  FIdToOrder := TIdToOrderMap.Create;
  FIdToOrder.Sorted := True;
  FLastPickedId := 0;
+ FCurrentGmfFile := '';
  FBaseCaption := Caption;
  FFpsFrameCount := 0;
  FFpsLastTick := GetTickCount64;
  if not InitOpenGL then raise Exception.Create('noInitGL');
  OpenGLPanel1.Color := clBtnFace;
 //
- FInspector := TPropInspector.Create(VLE, nil, ImgList);
+ FInspector := TPropInspector.Create(propEditor, nil, ImgList);
  OnClose := @FormClose;
 end;
 
@@ -131,7 +241,7 @@ end;
 
 procedure TMap2DRenderForm.CBTilesClick(Sender: TObject);
 begin
- if (FDrawer <> nil) and (CBTiles <> nil) then FDrawer.ShowTiles := CBTiles.Checked;
+ if (FDrawer <> nil) then FDrawer.ShowTiles := cbTiles.Checked;
  if OpenGLPanel1 <> nil then OpenGLPanel1.Invalidate;
 end;
 
@@ -154,34 +264,37 @@ begin
 end;
 
 procedure TMap2DRenderForm.MenuFileOpenClick(Sender: TObject);
-var oldStatus: String;
+var
+  oldStatus: String;
+  lastDir: String;
 begin
  if ODGmf = nil then Exit;
+
+ lastDir := LoadLastDirGmf;
+ if (lastDir <> '') and DirectoryExists(lastDir) then
+   ODGmf.InitialDir := lastDir;
+
  if not ODGmf.Execute then Exit;
- if (FMapObject = nil) then Exit;
- oldStatus := '';
- if StatusBar1 <> nil then
- begin
-  oldStatus := StatusBar1.SimpleText;
-  StatusBar1.SimpleText := 'Загрузка графики...';
-  StatusBar1.Repaint;
- end;
+ if ODGmf.FileName <> '' then
+ SaveLastDirGmf(ExtractFileDir(ODGmf.FileName));
+ FCurrentGmfFile := ODGmf.FileName;
+ pnlBottom.Caption := 'Загрузка графики...';
+ Screen.Cursor := crHourglass;;
+ pnlBottom.Update;
  try
   FMapObject.Clear;
-  FMapObject.OpenFile(ODGmf.FileName);
+  FMapObject.OpenFile(FCurrentGmfFile);
   FSceneDirty := True;
   FTessPrepared := False;
   OpenGLPanel1.Invalidate;
 //
  finally
+  Screen.Cursor := crDefault;
   FInspector.Clear;
   FDrawer.ClearDebugLabels;
   ClearSelection;
-  if StatusBar1 <> nil then
-  begin
-   StatusBar1.SimpleText := oldStatus;
-   StatusBar1.Repaint;
-  end;
+  pnlBottom.Caption := '';
+  pnlBottom.Update;
  end;
 end;
 
@@ -385,8 +498,6 @@ begin
  if FIdToOrder <> nil then FIdToOrder.Clear;
  FDrawer.Indexer := idx;
  FDrawer.BeginScene;
- oldStatus := '';
- if StatusBar1 <> nil then oldStatus := StatusBar1.SimpleText;
  total := 0;
  if (FMapObject.Geometry <> nil) then total := FMapObject.Geometry.Count;
  if PBScene <> nil then
@@ -413,20 +524,17 @@ begin
     end;
    end else
     id := 0;
-
-   if (StatusBar1 <> nil) then
-   begin
+  //
     nowUiTick := GetTickCount64;
     if (nowUiTick - lastUiTick) >= 100 then
     begin
      if total > 0 then statusText := Format('BuildScene %d/%d (%.1f%%)', [i + 1, total, (i + 1) * 100.0 / total])
      else statusText := Format('BuildScene %d', [i + 1]);
-     StatusBar1.SimpleText := statusText;
-     StatusBar1.Repaint;
+     pnlBottom.Caption := statusText;
+     pnlBottom.Update;
      if (PBScene <> nil) and (PBScene.Visible) then PBScene.Position := i + 1;
      lastUiTick := nowUiTick;
     end;
-   end;
 
    if geom.ogsRect <> nil then
    begin
@@ -510,12 +618,7 @@ begin
   end;
  FDrawer.EndScene;
  FSceneDirty := False;
- if StatusBar1 <> nil then
- begin
-  StatusBar1.SimpleText := oldStatus;
-  StatusBar1.Repaint;
- end;
- if PBScene <> nil then PBScene.Visible := False;
+ PBScene.Visible := False;
 end;
 
 procedure TMap2DRenderForm.Render;
@@ -628,10 +731,14 @@ begin
  Handled := True;
 end;
 
+procedure TMap2DRenderForm.OpenGLPanel1Click(Sender: TObject);
+begin
+
+end;
+
 procedure TMap2DRenderForm.OpenGLPanel1MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 var id: TGLObjectId;
 begin
- SetCapture(OpenGLPanel1.Handle);
  if Button = mbLeft then
  begin
   if PickObjectIdAt(X, Y, id) then
@@ -648,14 +755,15 @@ begin
  end;
  if (Button = mbMiddle) and (ssDouble in Shift) then
  begin
-  ReleaseCapture;
+  SetCaptureControl(nil);
   if (FMapObject <> nil) and (FMapObject.ogsSelector <> nil) then
    FMapObject.ogsSelector.UpdateRects(True);
   if OpenGLPanel1 <> nil then OpenGLPanel1.Invalidate;
   Exit;
  end;
- if Button <> mbMiddle then Exit;
+ if (Button <> mbMiddle) and (not (ssMiddle in Shift)) then Exit;
  if OpenGLPanel1 = nil then Exit;
+ SetCaptureControl(OpenGLPanel1);
  FMouseDragging := True;
  FLastMousePos := Point(X, Y);
 // SetCaptureControl(OpenGLPanel1);
@@ -664,27 +772,33 @@ end;
 procedure TMap2DRenderForm.OpenGLPanel1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
 var gx, gy: Double;
 begin
- if (StatusBar1 <> nil) and (FMapObject <> nil) and (FMapObject.ogsSelector <> nil) then
+ if (FMapObject <> nil) and (FMapObject.ogsSelector <> nil) then
  begin
   gx := FMapObject.ogsSelector.XGeo(X);
   gy := FMapObject.ogsSelector.YGeo(Y);
-  StatusBar1.SimpleText := Format('X=%.3f  Y=%.3f', [gx, gy]);
+  pnlBottom.Caption := Format('X=%.3f  Y=%.3f', [gx, gy]);
  end;
- if not FMouseDragging then Exit;
+ if (not FMouseDragging) and (not (ssMiddle in Shift)) then Exit;
  if (FMapObject = nil) or (FMapObject.ogsSelector = nil) then Exit;
  with FMapObject.ogsSelector do
  begin
   Move(geoDist(-X + FLastMousePos.X), geoDist(-Y + FLastMousePos.Y));
   FLastMousePos := Point(X, Y);
+  OpenGLPanel1.Invalidate;
  end;
- OpenGLPanel1.Invalidate;
+ propEditor.Update;
 end;
 
 procedure TMap2DRenderForm.OpenGLPanel1MouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
- if Button <> mbMiddle then Exit;
+ Sender := Sender;
+ Button := Button;
+ Shift := Shift;
+ X := X;
+ Y := Y;
  FMouseDragging := False;
- ReleaseCapture;
+ SetCaptureControl(nil);
+ OpenGLPanel1.Invalidate;
 end;
 
 end.

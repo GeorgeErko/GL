@@ -26,7 +26,7 @@
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
             <Libraries Value="gmf"/>
-            <OtherUnitFiles Value="gmf;GlobalRegistry;GlobalMouse;GlobalFly;GlobalRenderer;Global2DRenderer"/>
+            <OtherUnitFiles Value="gmf;GlobalRegistry;GlobalMouse;GlobalFly;GlobalRenderer;Global2DRenderer;GlobalVector"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <Parsing>
@@ -69,7 +69,7 @@
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
             <Libraries Value="gmf"/>
-            <OtherUnitFiles Value="GlobalRegistry;GlobalMouse;GlobalFly;GlobalRenderer;Global2DRenderer;libTess2\src"/>
+            <OtherUnitFiles Value="GlobalRegistry;GlobalMouse;GlobalFly;GlobalRenderer;Global2DRenderer;libTess2\src;GlobalVector"/>
             <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
           </SearchPaths>
           <Parsing>
@@ -342,6 +342,14 @@
         <Filename Value="ogctess.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="GlobalVector\uMainVector.pas"/>
+        <FRMtype Value="200"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="MainVector"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -353,7 +361,7 @@
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
       <Libraries Value="gmf"/>
-      <OtherUnitFiles Value="GlobalShared;GlobalRegistry;GlobalMouse;GlobalFly;GlobalRenderer;Global2DRenderer;libTess2\src"/>
+      <OtherUnitFiles Value="GlobalShared;GlobalRegistry;GlobalMouse;GlobalFly;GlobalRenderer;Global2DRenderer;libTess2\src;GlobalVector"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Parsing>

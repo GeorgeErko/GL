@@ -34,6 +34,8 @@ type
   btnTestTiles: TButton;
   btnTestTiles1: TButton;
   Button1: TButton;
+  ButtonMap2D: TButton;
+  ButtonMap2D1: TButton;
   FloatSpinEdit1: TFloatSpinEdit;
   GroupBox1: TGroupBox;
   Image32: TImage32;
@@ -75,6 +77,7 @@ type
   procedure actnOpenDWGExecute(Sender: TObject);
   procedure btnTestTilesClick(Sender: TObject);
   procedure Button1Click(Sender: TObject);
+  procedure ButtonMap2D1Click(Sender: TObject);
   procedure ButtonMap2DClick(Sender: TObject);
   procedure FloatSpinEdit1Change(Sender: TObject);
   procedure FormChangeBounds(Sender: TObject);
@@ -132,7 +135,8 @@ implementation uses DebuggerForm, ogcWriter, GMFGeometry, ogcIEObjects,
                     StrUtils, synachar, synautil, Math, TypInfo,
                     ogcRects, ogcBitmap, ogcLas, GR32_Polygons,
                     uBitHash,
-                    uLasViewRenderer, uRenderForm, uMap2DRenderForm;
+                    uLasViewRenderer, uLas3DRenderform, uMap2DRenderForm,
+                    uMainVector;
 
 {$R *.frm}
 
@@ -252,6 +256,17 @@ begin
  end;
 end;
 
+procedure TMainFrm.ButtonMap2D1Click(Sender: TObject);
+var MainVector: TMainVector;
+begin
+ MainVector := TMainVector.Create(Self);
+ try
+  MainVector.ShowModal;
+ finally
+  MainVector.Free;
+ end;
+end;
+
 procedure TMainFrm.FloatSpinEdit1Change(Sender: TObject);
 var ZCut: Double;
 begin
@@ -277,9 +292,9 @@ end;
 procedure TMainFrm.Button1Click(Sender: TObject);
 var Form3D: TLas3DViewerForm;
 begin
- RenderForm := TRenderForm.Create(Self);
- RenderForm.ShowModal;
- RenderForm.Free;
+ Las3DRenderForm := TLas3DRenderForm.Create(Self);
+ Las3DRenderForm.ShowModal;
+ Las3DRenderForm.Free;
  exit;
 //
  Form3D := TLas3DViewerForm.Create(Self);

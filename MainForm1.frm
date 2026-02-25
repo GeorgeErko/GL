@@ -439,6 +439,15 @@ object MainFrm: TMainFrm
       TabOrder = 2
     end
   end
+  object ButtonMap2D1: TButton
+    Left = 703
+    Height = 25
+    Top = 80
+    Width = 60
+    Caption = 'Vec'
+    OnClick = ButtonMap2D1Click
+    TabOrder = 8
+  end
   object PopupMenu1: TPopupMenu
     Left = 296
     Top = 24

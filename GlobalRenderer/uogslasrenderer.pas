@@ -41,6 +41,8 @@ type
   FBlendEnabled: Boolean;
   FPlaneEnabled: Boolean;
   FPlaneDeltaZ: Double;
+  FZoomToPlaneEnabled: Boolean;
+  FZoomToPlaneK: Double;
   FShowTileBBoxes: Boolean;
   procedure SetMode(AValue: TRenderMode);
   procedure SetShowTileBBoxes(AValue: Boolean);
@@ -78,6 +80,8 @@ type
   property BlendEnabled: Boolean read FBlendEnabled write FBlendEnabled;
   property PlaneEnabled: Boolean read FPlaneEnabled write FPlaneEnabled;
   property PlaneDeltaZ: Double read FPlaneDeltaZ write FPlaneDeltaZ;
+  property ZoomToPlaneEnabled: Boolean read FZoomToPlaneEnabled write FZoomToPlaneEnabled;
+  property ZoomToPlaneK: Double read FZoomToPlaneK write FZoomToPlaneK;
   property ShowTileBBoxes: Boolean read FShowTileBBoxes write SetShowTileBBoxes;
  end;
 
@@ -116,6 +120,8 @@ begin
  FStateFileName := '';
  FPlaneEnabled := False;
  FPlaneDeltaZ := 0;
+ FZoomToPlaneEnabled := True;
+ FZoomToPlaneK := 0.1;
  FShowTileBBoxes := False;
 end;
 
@@ -141,6 +147,8 @@ begin
    ini.WriteInteger('Render', 'Alpha', Round(EnsureRange(FAlpha, 0.0, 1.0) * 255.0));
    ini.WriteBool('Render', 'Plane', FPlaneEnabled);
    ini.WriteFloat('Render', 'PlaneDeltaZ', FPlaneDeltaZ);
+   ini.WriteBool('Render', 'ZoomToPlane', FZoomToPlaneEnabled);
+   ini.WriteFloat('Render', 'ZoomToPlaneK', FZoomToPlaneK);
    ini.WriteBool('Render', 'ShowTiles', FShowTileBBoxes);
   finally
    ini.Free;
@@ -180,6 +188,10 @@ begin
    FAlpha := alphaI / 255.0;
    FPlaneEnabled := ini.ReadBool('Render', 'Plane', FPlaneEnabled);
    FPlaneDeltaZ := ini.ReadFloat('Render', 'PlaneDeltaZ', FPlaneDeltaZ);
+   FZoomToPlaneEnabled := ini.ReadBool('Render', 'ZoomToPlane', FZoomToPlaneEnabled);
+   FZoomToPlaneK := ini.ReadFloat('Render', 'ZoomToPlaneK', FZoomToPlaneK);
+   if IsNan(FZoomToPlaneK) or IsInfinite(FZoomToPlaneK) then
+    FZoomToPlaneK := 0.1;
    SetShowTileBBoxes(ini.ReadBool('Render', 'ShowTiles', FShowTileBBoxes));
   finally
    ini.Free;
@@ -513,6 +525,15 @@ end;
 
 procedure TLasRenderer.MouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint);
 var delta: Double;
+    stepDist: Double;
+    minZ, maxZ, originZ: Double;
+    zPlane: Double;
+    yawRad, pitchRad: Double;
+    camX, camY, camZ: Double;
+    dirX, dirY, dirZ: Double;
+    distance: Double;
+    t: Double;
+    w, h: Integer;
 begin
  delta := WheelDelta / 120;
  if FMode = rmOrtho2D then
@@ -528,8 +549,60 @@ begin
    FAutoDistance := False;
    FDistance := DefaultDistance3D;
   end;
-  FDistance := FDistance - delta * ZoomStepMeters;
-  FDistance := EnsureRange(FDistance, 1E-12, 1E18);
+
+  stepDist := ZoomStepMeters;
+
+  if FZoomToPlaneEnabled then
+  begin
+   if (FLas <> nil) and FLas.Loaded and (FLas.Source <> nil) and (FLas.Source.IsOpen) then
+   begin
+    minZ := FLas.Source.Header.MinZ;
+    maxZ := FLas.Source.Header.MaxZ;
+    originZ := (minZ + maxZ) * 0.5;
+    zPlane := (minZ + FPlaneDeltaZ) - originZ;
+
+    yawRad := DegToRad(FYaw);
+    pitchRad := DegToRad(FPitch);
+
+    if (FDistance <= 0) or IsNan(FDistance) or IsInfinite(FDistance) then
+     distance := DefaultDistance3D
+    else
+     distance := FDistance;
+    if distance <= 0 then distance := 1E-6;
+
+    camX := distance * Sin(pitchRad) * Sin(yawRad) - FPanX;
+    camY := distance * Sin(pitchRad) * Cos(yawRad) - FPanY;
+    camZ := distance * Cos(pitchRad) - FPanZ;
+
+    dirX := -Sin(pitchRad) * Sin(yawRad);
+    dirY := -Sin(pitchRad) * Cos(yawRad);
+    dirZ := -Cos(pitchRad);
+    if Abs(dirZ) > 1E-12 then
+    begin
+     t := (zPlane - camZ) / dirZ;
+     if (t > 0) and (not IsNan(t)) and (not IsInfinite(t)) then
+     begin
+      stepDist := t * EnsureRange(FZoomToPlaneK, 1E-6, 1E6);
+      if stepDist < 1E-6 then stepDist := 1E-6;
+     end;
+    end;
+   end;
+  end;
+
+  w := 0;
+  h := 0;
+  if FOGL <> nil then
+  begin
+   w := FOGL.Width;
+   h := FOGL.Height;
+  end;
+  if (w > 0) and (h > 0) then
+   Zoom3DBy(-delta * stepDist, w div 2, h div 2)
+  else
+  begin
+   FDistance := FDistance - delta * stepDist;
+   FDistance := EnsureRange(FDistance, 1E-12, 1E18);
+  end;
  end;
 end;
 
