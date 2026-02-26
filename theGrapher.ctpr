@@ -99,6 +99,9 @@
     </RunParams>
     <RequiredPackages>
       <Item>
+        <PackageName Value="pl_AGGPasVS"/>
+      </Item>
+      <Item>
         <PackageName Value="pl_zengl"/>
       </Item>
       <Item>
@@ -350,6 +353,18 @@
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit>
+      <Unit>
+        <Filename Value="Global2DRenderer\ogcDrawerOGL2.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="Global2DRenderer\uMap2D2RenderForm.pas"/>
+        <FRMtype Value="200"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="Map2D2RenderForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -364,11 +379,6 @@
       <OtherUnitFiles Value="GlobalShared;GlobalRegistry;GlobalMouse;GlobalFly;GlobalRenderer;Global2DRenderer;libTess2\src;GlobalVector"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
-    <Parsing>
-      <SyntaxOptions>
-        <SyntaxMode Value="Delphi"/>
-      </SyntaxOptions>
-    </Parsing>
     <Linking>
       <Debugging>
         <UseLineInfoUnit Value="False"/>

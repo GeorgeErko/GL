@@ -33,7 +33,7 @@ type
  end;
 
  TDrawerOGL = class(TogsDrawer)
- private
+ protected
   FPanel: TOpenGLPanel;
   FCanvas: TControlCanvas;
   FOnPaint: TNotifyEvent;
@@ -80,6 +80,7 @@ type
   FForceColor: Boolean;
   FForcedColor: TColor;
   FDebugLabels: array of TDebugLabel;
+  FLastSceneGpuBytes: Int64;
   procedure RenderTilesOverlay;
   function GetHeight: Integer; override;
   function GetWidth: Integer; override;
@@ -102,7 +103,6 @@ type
   procedure ApplyFillVertexColor(var V: TLineVertex);
   procedure UseColor(ColorRGB: TColor);
   procedure GetMVP(out MVP: TMat4);
- protected
   procedure SetPen(AValue: TogsPen); override;
   function GetCanvas: TCanvas; override;
  public
@@ -110,16 +110,16 @@ type
   destructor Destroy; override;
  //
   procedure InitGL;
-  procedure ReleaseGL;
+  procedure ReleaseGL; virtual;
  //
   procedure BeginObject(AObjectId: TGLObjectId);
   procedure EndObject;
   procedure Clear(AColor: Integer); override;
   procedure BeginPaint; override;
   procedure EndPaint; override;
-  procedure BeginScene;
+  procedure BeginScene; virtual;
   procedure EndScene;
-  procedure RenderScene;
+  procedure RenderScene; virtual;
   property ShowTiles: Boolean read FShowTiles write FShowTiles;
   property ForceColor: Boolean read FForceColor write FForceColor;
   property ForcedColor: TColor read FForcedColor write FForcedColor;
@@ -138,6 +138,7 @@ type
   function geoHeight: Double; override;
   procedure DrawTo(Image_: TCanvas; Rect: TRect); override; overload;
   property Indexer: TGLSceneIndexer read FIndexer write FIndexer;
+  property LastSceneGpuBytes: Int64 read FLastSceneGpuBytes;
  end;
 
 implementation uses ogcGeometry, ogctess, ogcWriter;
@@ -190,6 +191,7 @@ begin
  FCurObjectId := 0;
  SetLength(FCurObjectTiles, 0);
  SetLength(FDebugLabels, 0);
+ FLastSceneGpuBytes := 0;
 end;
 
 destructor TDrawerOGL.Destroy;
@@ -671,10 +673,35 @@ var
  i: Integer;
  vertCnt: Integer;
  indCnt: Integer;
+ function GetBufferBytes(ATarget: GLenum): Int64;
+ var sz: GLint;
+ begin
+  sz := 0;
+  glGetBufferParameteriv(ATarget, GL_BUFFER_SIZE, @sz);
+  if sz < 0 then sz := 0;
+  Result := sz;
+ end;
+
+ function QueryVBOBytes(ABuffer: GLuint): Int64;
+ begin
+  if ABuffer = 0 then Exit(0);
+  glBindBuffer(GL_ARRAY_BUFFER, ABuffer);
+  Result := GetBufferBytes(GL_ARRAY_BUFFER);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+ end;
+
+ function QueryIBOBytes(ABuffer: GLuint): Int64;
+ begin
+  if ABuffer = 0 then Exit(0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ABuffer);
+  Result := GetBufferBytes(GL_ELEMENT_ARRAY_BUFFER);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+ end;
 begin
  FBuildingScene := False;
  if not FGLInited then Exit;
  if (FProgram = 0) then Exit;
+ FLastSceneGpuBytes := 0;
  for i := 0 to FTileCount - 1 do
  begin
   vertCnt := FTileFillVertUsed[i];
@@ -695,6 +722,10 @@ begin
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
    if (Length(FTileFillVAO) > i) and (FTileFillVAO[i] <> 0) then glBindVertexArray(0);
   end;
+
+  if Length(FTileFillVBO) > i then Inc(FLastSceneGpuBytes, QueryVBOBytes(FTileFillVBO[i]));
+  if Length(FTileFillIBO) > i then Inc(FLastSceneGpuBytes, QueryIBOBytes(FTileFillIBO[i]));
+
   vertCnt := FTileVertUsed[i];
   indCnt := FTileIndUsed[i];
   FTileVertCount[i] := vertCnt;
@@ -711,7 +742,12 @@ begin
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   if (Length(FTileVAO) > i) and (FTileVAO[i] <> 0) then glBindVertexArray(0);
+
+  if Length(FTileVBO) > i then Inc(FLastSceneGpuBytes, QueryVBOBytes(FTileVBO[i]));
+  if Length(FTileIBO) > i then Inc(FLastSceneGpuBytes, QueryIBOBytes(FTileIBO[i]));
  end;
+
+ Inc(FLastSceneGpuBytes, QueryVBOBytes(FVBO));
 end;
 
 procedure TDrawerOGL.BeginObject(AObjectId: TGLObjectId);

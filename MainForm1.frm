@@ -318,7 +318,7 @@ object MainFrm: TMainFrm
       )
       ColWidths = (
         64
-        212
+        195
       )
     end
     object Image32: TImage32

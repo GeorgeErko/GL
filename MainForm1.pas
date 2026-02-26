@@ -135,7 +135,7 @@ implementation uses DebuggerForm, ogcWriter, GMFGeometry, ogcIEObjects,
                     StrUtils, synachar, synautil, Math, TypInfo,
                     ogcRects, ogcBitmap, ogcLas, GR32_Polygons,
                     uBitHash,
-                    uLasViewRenderer, uLas3DRenderform, uMap2DRenderForm,
+                    uLasViewRenderer, uLas3DRenderform, uMap2D2RenderForm,
                     uMainVector;
 
 {$R *.frm}
@@ -246,9 +246,9 @@ exit;
 end;
 
 procedure TMainFrm.ButtonMap2DClick(Sender: TObject);
-var Form2D: TMap2DRenderForm;
+var Form2D: TMap2D2RenderForm;
 begin
- Form2D := TMap2DRenderForm.Create(Self);
+ Form2D := TMap2D2RenderForm.Create(Self);
  try
   Form2D.ShowModal;
  finally

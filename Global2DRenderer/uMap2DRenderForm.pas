@@ -12,7 +12,7 @@ uses
  Menus, ValEdit, Buttons,
  fgl,
  ogcBasic, ogcRegistry, ogcDrawerOGL, ogcMapObject, uGLSceneIndexer, ogcProperties,
- ogcGeometry,
+ ogcGeometry, ttfgeometry,
  ogcInspector;
 
 type
@@ -67,7 +67,8 @@ type
   FIdToOrder: TIdToOrderMap;
   FLastPickedId: TGLObjectId;
   FCurrentGmfFile: String;
-  procedure BuildScene;
+  FRenderBlocks: Boolean;
+  FRenderText: Boolean;
   procedure Render;
   procedure RenderSelectionOverlay;
   procedure ClearSelection;
@@ -77,8 +78,16 @@ type
   function IsSelected(AId: TGLObjectId): Boolean;
   function PickObjectIdAt(XPix, YPix: Integer; out PickedId: TGLObjectId): Boolean;
   procedure UpdateInspectorForSelection;
+ protected
+  function CreateDrawer: TDrawerOGL; virtual;
+  procedure BuildScene; virtual;
+  procedure MarkSceneDirty;
+  procedure ClearDrawerScene;
+  property Drawer: TDrawerOGL read FDrawer;
  public
   OwnerForm: TForm;
+  property RenderBlocks: Boolean read FRenderBlocks write FRenderBlocks;
+  property RenderText: Boolean read FRenderText write FRenderText;
   function CurrentGmfFile: String;
   procedure OpenGmfFile(const FileName: String);
  end;
@@ -194,11 +203,13 @@ end;
 procedure TMap2DRenderForm.FormCreate(Sender: TObject);
 begin
  Menu := nil;
- FDrawer := TDrawerOGL.Create(nil, OpenGLPanel1, @OpenGLPanel1Paint);
+ FDrawer := CreateDrawer;
  FMapObject := TogsMapObject.Create(FDrawer);
  FDrawer.ogsSelector := FMapObject.ogsSelector;
  if (FMapObject.Indexer <> nil) then FMapObject.Indexer.TestSplit4 := True;
  cbTiles.Checked := FDrawer.ShowTiles;
+ FRenderBlocks := True;
+ FRenderText := True;
  FGLInited := False;
  FPainting := False;
  FSceneDirty := True;
@@ -222,6 +233,25 @@ begin
 //
  FInspector := TPropInspector.Create(propEditor, nil, ImgList);
  OnClose := @FormClose;
+end;
+
+function TMap2DRenderForm.CreateDrawer: TDrawerOGL;
+begin
+ Result := TDrawerOGL.Create(nil, OpenGLPanel1, @OpenGLPanel1Paint);
+end;
+
+procedure TMap2DRenderForm.MarkSceneDirty;
+begin
+ FSceneDirty := True;
+end;
+
+procedure TMap2DRenderForm.ClearDrawerScene;
+begin
+ if (FDrawer = nil) then Exit;
+ if (OpenGLPanel1 = nil) then Exit;
+ if (not OpenGLPanel1.HandleAllocated) then Exit;
+ if (not OpenGLPanel1.MakeCurrent) then Exit;
+ FDrawer.ReleaseGL;
 end;
 
 procedure TMap2DRenderForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -462,6 +492,8 @@ var i: Integer;
     nowUiTick: QWord;
     oldStatus: String;
     statusText: String;
+    isTextGeom: Boolean;
+    isBlockGeom: Boolean;
 begin
  if FDrawer = nil then Exit;
  if FMapObject = nil then Exit;
@@ -473,8 +505,9 @@ begin
   begin
    geom := FMapObject.Geometry.Item[i];
    if geom = nil then Continue;
-   if (geom is TogsPolygon) or (geom is TogsMultiPolygon) then
-    geom.Calculate([calcTess]);
+   geom.Calculate([calcTess]);
+   if (geom is TgmfPoint) and (TgmfPoint(geom).gmfBlock <> nil) then
+    TgmfPoint(geom).gmfBlock.Calculate([calcTess]);
   end;
   FTessPrepared := True;
  end;
@@ -612,7 +645,13 @@ begin
    if geom <> nil then
    begin
     FDrawer.BeginObject(id);
-    geom.Draw(FDrawer);
+    isTextGeom := (geom is TogsTextString);
+    isBlockGeom := (geom is TgmfPoint) and (TgmfPoint(geom).gmfBlock <> nil);
+    if (isTextGeom and (not FRenderText)) or (isBlockGeom and (not FRenderBlocks)) then
+    begin
+     // skipped
+    end else
+     geom.Draw(FDrawer);
     FDrawer.EndObject;
    end;
   end;
@@ -638,6 +677,8 @@ var
  oldPen: TogsPen;
  oldOverlayThick: Boolean;
  oldOverlayWidth: Integer;
+ isTextGeom: Boolean;
+ isBlockGeom: Boolean;
 procedure DrawSelected;
 var i: Integer;
 begin
@@ -646,6 +687,9 @@ begin
    if FIdToGeom.IndexOf(id) < 0 then Continue;
    geom := FIdToGeom.Data[FIdToGeom.IndexOf(id)];
    if geom = nil then Continue;
+   isTextGeom := (geom is TogsTextString);
+   isBlockGeom := (geom is TgmfPoint) and (TgmfPoint(geom).gmfBlock <> nil);
+   if (isTextGeom and (not FRenderText)) or (isBlockGeom and (not FRenderBlocks)) then Continue;
    FDrawer.BeginObject(id);
    geom.Draw(FDrawer);
    FDrawer.EndObject;
@@ -686,6 +730,7 @@ var
  nowTick: QWord;
  dt: QWord;
  fps: Double;
+ gpuMB: Double;
 begin
  if FClosing then Exit;
  if (csDestroying in ComponentState) then Exit;
@@ -713,7 +758,13 @@ begin
   if dt >= 1000 then
   begin
    fps := FFpsFrameCount * 1000.0 / dt;
-   Caption := FBaseCaption + Format('  FPS: %.1f', [fps]);
+   gpuMB := 0;
+   if (FDrawer <> nil) and (FDrawer.LastSceneGpuBytes > 0) then
+    gpuMB := FDrawer.LastSceneGpuBytes / (1024.0 * 1024.0);
+   if gpuMB > 0 then
+    Caption := FBaseCaption + Format('  FPS: %.1f  GPU: %.1f MB', [fps, gpuMB])
+   else
+    Caption := FBaseCaption + Format('  FPS: %.1f', [fps]);
    FFpsFrameCount := 0;
    FFpsLastTick := nowTick;
   end;
