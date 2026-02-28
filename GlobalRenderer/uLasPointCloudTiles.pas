@@ -55,6 +55,7 @@ type
 
   function GetTileCount: Integer;
   function GetTile(Index: Integer): TLasPointCloudGpu;
+  function GetTileDyna(Index: Integer): TLasPointCloudGpu;
   procedure ClearTiles;
   procedure BuildTileGrid(const AMinX, AMinY, AMaxX, AMaxY: Double; ATileCount: Integer);
   function CalcTargetTileCount(ALas: TogsLas): Integer;
@@ -110,6 +111,12 @@ type
 
   procedure RenderTileBBoxes(AMinZ, AMaxZ: Single);
 
+  procedure GetGridXYBBox(out AMinX, AMinY, AMaxX, AMaxY: Double; out AOriginX, AOriginY: Double);
+
+  procedure GetGridTileStep(out ADx, ADy: Double);
+
+  function GetTileRect(Index: Integer; out AMinX, AMinY, AMaxX, AMaxY: Double): Boolean;
+
   property DrawTileBBoxes: Boolean read FDrawTileBBoxes write FDrawTileBBoxes;
 
   property ColorMode: TLasPointColorMode read FColorMode write FColorMode;
@@ -118,6 +125,7 @@ type
 
   property TileCount: Integer read GetTileCount;
   property Tiles[Index: Integer]: TLasPointCloudGpu read GetTile;
+  property TilesDyna[Index: Integer]: TLasPointCloudGpu read GetTileDyna;
   property TotalCount: Int64 read FTotalCount;
   property TotalCountDyna: Int64 read FTotalCountDyna;
  end;
@@ -125,7 +133,7 @@ type
 implementation uses ogcWriter;
 
 const
- TARGET_TILE_BYTES = Int64(512) * 1024 * 1024;
+ TARGET_TILE_BYTES = Int64(256) * 1024 * 1024;
 
 function ClampF(const V, AMin, AMax: Double): Double;
 begin
@@ -197,6 +205,12 @@ function TLasPointCloudTiles.GetTile(Index: Integer): TLasPointCloudGpu;
 begin
  if (Index < 0) or (Index >= Length(FTiles)) then Exit(nil);
  Result := FTiles[Index];
+end;
+
+function TLasPointCloudTiles.GetTileDyna(Index: Integer): TLasPointCloudGpu;
+begin
+ if (Index < 0) or (Index >= Length(FTilesDyna)) then Exit(nil);
+ Result := FTilesDyna[Index];
 end;
 
 procedure TLasPointCloudTiles.ClearTiles;
@@ -353,6 +367,7 @@ end;
 procedure TLasPointCloudTiles.BuildFromLas(ALas: TogsLas; AMaxPointsTotal: Int64);
 var
  minX, minY, maxX, maxY: Double;
+ headerMinX, headerMinY, headerMaxX, headerMaxY: Double;
  originX, originY, originZ: Double;
  tileTarget: Integer;
  i: Integer;
@@ -360,6 +375,7 @@ var
  cnt: Int64;
  pt: Int64;
  step: Int64;
+ stepBBox: Int64;
  x, y, z: Double;
  r, g, b: Word;
  intensity: Word;
@@ -474,13 +490,58 @@ begin
  if Assigned(FOnProgress) then
   FOnProgress(Self, 0, maxPos);
 
- minX := ALas.Source.Header.MinX;
- minY := ALas.Source.Header.MinY;
- maxX := ALas.Source.Header.MaxX;
- maxY := ALas.Source.Header.MaxY;
+ headerMinX := ALas.Source.Header.MinX;
+ headerMinY := ALas.Source.Header.MinY;
+ headerMaxX := ALas.Source.Header.MaxX;
+ headerMaxY := ALas.Source.Header.MaxY;
 
- originX := (ALas.Source.Header.MinX + ALas.Source.Header.MaxX) * 0.5;
- originY := (ALas.Source.Header.MinY + ALas.Source.Header.MaxY) * 0.5;
+ minX := headerMinX;
+ minY := headerMinY;
+ maxX := headerMaxX;
+ maxY := headerMaxY;
+
+ cnt := ALas.Source.PointCount;
+ stepBBox := 1;
+ if cnt > 5000000 then
+  stepBBox := Ceil(cnt / 5000000);
+
+ if cnt > 0 then
+ begin
+  minX := 1E300;
+  minY := 1E300;
+  maxX := -1E300;
+  maxY := -1E300;
+  pt := 0;
+  while pt < cnt do
+  begin
+   if ALas.Source.GetPointXYZRGBAttrs(pt, x, y, z, intensity, flags, classif, scanAngleRank, userData, pointSourceID, r, g, b) then
+   begin
+    if x < minX then minX := x;
+    if y < minY then minY := y;
+    if x > maxX then maxX := x;
+    if y > maxY then maxY := y;
+   end;
+   Inc(pt, stepBBox);
+  end;
+
+  if (minX > maxX) or (minY > maxY) then
+  begin
+   minX := headerMinX;
+   minY := headerMinY;
+   maxX := headerMaxX;
+   maxY := headerMaxY;
+  end
+  else
+  begin
+   if (minX > headerMinX) and (headerMinX < headerMaxX) then minX := headerMinX;
+   if (minY > headerMinY) and (headerMinY < headerMaxY) then minY := headerMinY;
+   if (maxX < headerMaxX) and (headerMinX < headerMaxX) then maxX := headerMaxX;
+   if (maxY < headerMaxY) and (headerMinY < headerMaxY) then maxY := headerMaxY;
+  end;
+ end;
+
+ originX := (minX + maxX) * 0.5;
+ originY := (minY + maxY) * 0.5;
  originZ := (ALas.Source.Header.MinZ + ALas.Source.Header.MaxZ) * 0.5;
 
  FOriginX := originX;
@@ -496,7 +557,6 @@ begin
  if (FGridNx <= 0) or (FGridNy <= 0) or (Length(FTileRects) <= 0) then Exit;
 
  step := 1;
- cnt := ALas.Source.PointCount;
  if (AMaxPointsTotal > 0) and (cnt > AMaxPointsTotal) then
   step := Ceil(cnt / AMaxPointsTotal);
 
@@ -750,6 +810,32 @@ begin
  for i := 0 to High(FTileRects) do
   TLasPointCloudGpu.DrawBBoxLines((FTileRects[i].MinX - FOriginX), (FTileRects[i].MinY - FOriginY), (AMinZ - FOriginZ),
                                   (FTileRects[i].MaxX - FOriginX), (FTileRects[i].MaxY - FOriginY), (AMaxZ - FOriginZ));
+end;
+
+procedure TLasPointCloudTiles.GetGridXYBBox(out AMinX, AMinY, AMaxX, AMaxY: Double; out AOriginX, AOriginY: Double);
+begin
+ AMinX := FGridMinX;
+ AMinY := FGridMinY;
+ AMaxX := FGridMaxX;
+ AMaxY := FGridMaxY;
+ AOriginX := FOriginX;
+ AOriginY := FOriginY;
+end;
+
+procedure TLasPointCloudTiles.GetGridTileStep(out ADx, ADy: Double);
+begin
+ ADx := FGridDx;
+ ADy := FGridDy;
+end;
+
+function TLasPointCloudTiles.GetTileRect(Index: Integer; out AMinX, AMinY, AMaxX, AMaxY: Double): Boolean;
+begin
+ Result := (Index >= 0) and (Index <= High(FTileRects));
+ if not Result then Exit;
+ AMinX := FTileRects[Index].MinX;
+ AMinY := FTileRects[Index].MinY;
+ AMaxX := FTileRects[Index].MaxX;
+ AMaxY := FTileRects[Index].MaxY;
 end;
 
 procedure TLasPointCloudTiles.RenderHighlightCulled(const MVP: TMat4; APointSize: Single;

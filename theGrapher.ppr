@@ -13,8 +13,8 @@ uses
  ogcGeometry, ogs2BStream, ogcLayer, ogccallbackrec, ogcIEObjects, ogcLType,
  ogcIEProcs, ogcProcs, ogcMathUtils, ogctypedcollect, ogcGeometry2,
  ogctransactions, ogcGeometry3, ogcArcs, ogcInterServer, WSClient, ogcRects,
- ogcBitmap, ogcTileLayer, ogcPlayer, ogcClipPolyline, ogcLas, uLas3DViewerForm,
- ogctess, uMap2DRenderForm, uBitHash, objMouse, ogcRegistry, uRenderForm,
+ ogcBitmap, ogcTileLayer, ogcPlayer, ogcClipPolyline, ogcLas,
+ ogctess, uMap2DRenderForm, uBitHash, objMouse, ogcRegistry,
  uLasMmapSource24, uLasPointCloudTiles, uLasAutoStatesForm, uLasViewRenderer,
  uogslasrenderer, uMainVector,
  ogcDrawerOGL2, uMap2D2RenderForm;

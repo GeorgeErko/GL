@@ -114,33 +114,33 @@ object Las3DRenderForm: TLas3DRenderForm
       Left = 53
       Height = 25
       Top = 6
-      Width = 75
+      Width = 35
       Caption = '2D'
       OnClick = Button2DClick
       TabOrder = 0
     end
     object Button3D: TButton
-      Left = 133
+      Left = 93
       Height = 25
       Top = 6
-      Width = 75
+      Width = 35
       Caption = '3D'
       OnClick = Button3DClick
       TabOrder = 1
     end
     object ButtonReset: TButton
-      Left = 213
+      Left = 132
       Height = 25
       Top = 6
-      Width = 75
+      Width = 47
       Caption = 'Reset'
       OnClick = ButtonResetClick
       TabOrder = 2
     end
     object Label1: TLabel
-      Left = 301
+      Left = 186
       Height = 15
-      Top = 10
+      Top = 11
       Width = 35
       Caption = 'Точка:'
     end
@@ -154,9 +154,9 @@ object Las3DRenderForm: TLas3DRenderForm
       OnClick = LabelCameraClick
     end
     object UpDown1: TUpDown
-      Left = 343
+      Left = 228
       Height = 31
-      Top = 0
+      Top = 1
       Width = 17
       Max = 4
       Min = 1
@@ -165,18 +165,18 @@ object Las3DRenderForm: TLas3DRenderForm
       TabOrder = 3
     end
     object BlendCheck: TCheckBox
-      Left = 373
+      Left = 258
       Height = 19
-      Top = 6
+      Top = 7
       Width = 48
       Caption = 'Blend'
       OnChange = UIChanged
       TabOrder = 4
     end
     object AlphaBar: TTrackBar
-      Left = 427
+      Left = 312
       Height = 30
-      Top = 3
+      Top = 4
       Width = 160
       Max = 255
       OnChange = UIChanged
@@ -184,9 +184,9 @@ object Las3DRenderForm: TLas3DRenderForm
       TabOrder = 5
     end
     object TilesCheck: TCheckBox
-      Left = 605
+      Left = 490
       Height = 19
-      Top = 6
+      Top = 7
       Width = 41
       Caption = 'Tiles'
       OnChange = UIChanged
@@ -226,6 +226,28 @@ object Las3DRenderForm: TLas3DRenderForm
       000DDDDDD0DDDDDD000DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
     }
     OnClick = MenuFileOpenClick
+  end
+  object cbTileSize: TComboBox
+    Left = 538
+    Height = 23
+    Top = 5
+    Width = 74
+    ItemHeight = 15
+    ItemIndex = 1
+    Items.Strings = (
+      '50'
+      '100'
+      '150'
+      '200'
+      '250'
+      '350'
+      '500'
+      '750'
+      '1000'
+    )
+    OnChange = cbTileSizeChange
+    TabOrder = 3
+    Text = '100'
   end
   object r3MainMenu1: TMainMenu
     Left = 400

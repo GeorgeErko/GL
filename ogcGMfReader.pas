@@ -53,7 +53,7 @@ begin
   hLib := SafeLoadLibrary(ExtractFilePath(ParamStr(0))+ 'DWGLib\DWGGL2project.dll');
   WriteIn(['hLib=', LongInt(hlib)]);
   If hLib <> 0 then begin
-   openFunc := GetProcedureAddress(hLib,'OpenGMF2');
+   openFunc := GetProcedureAddress(hLib, 'OpenGMF2');
    If Assigned(openFunc) then
     openFunc(Application.Handle, PChar(gmfFileName), CallbackRec) else
     WriteIn(['OpenFunc = nil']);

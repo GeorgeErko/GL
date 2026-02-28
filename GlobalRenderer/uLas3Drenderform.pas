@@ -19,9 +19,11 @@ type
   Button2D: TButton;
   Button3D: TButton;
   ButtonReset: TButton;
+  cbTileSize: TComboBox;
   ColorModeCombo: TComboBox;
   DeltaZEdit: TFloatSpinEdit;
   kZoom: TCheckBox;
+  r3sbOpen1: TSpeedButton;
   ZoomKEdit: TFloatSpinEdit;
   Label1: TLabel;
   LabelCamera: TLabel;
@@ -41,6 +43,7 @@ type
   TilesCheck: TCheckBox;
   UpdateTimer: TTimer;
   UpDown1: TUpDown;
+  procedure cbTileSizeChange(Sender: TObject);
   procedure FormCreate(Sender: TObject);
   procedure FormDestroy(Sender: TObject);
   procedure LabelCameraClick(Sender: TObject);
@@ -189,6 +192,8 @@ begin
  FCurrentLasFile := '';
  ProgressBar1.Visible := False;
  UpDown1.Position := 2;
+ if cbTileSize <> nil then
+  cbTileSize.OnChange := cbTileSizeChange;
  //
  PopulateColorModeCombo;
  SyncColorModeComboFromTiles;
@@ -198,6 +203,21 @@ begin
  If not InitOpenGL then
   raise Exception.Create('noInitGL');
 end;
+
+procedure TLas3DRenderForm.cbTileSizeChange(Sender: TObject);
+var
+ v: Double;
+begin
+ if FUpdatingUI then Exit;
+ if (FRenderer = nil) or (cbTileSize = nil) then Exit;
+ if TryStrToFloat(Trim(cbTileSize.Text), v) then
+ begin
+  FRenderer.DynaLodTileSize := v;
+  OpenGLPanel1.Invalidate;
+  SaveSettings;
+ end;
+end;
+
 //
 procedure TLas3DRenderForm.FormDestroy(Sender: TObject);
 begin
@@ -247,6 +267,8 @@ procedure TLas3DRenderForm.OpenLasFile(const FileName: String);
 var
   fn: String;
   pdrf: Integer;
+  dx, dy: Double;
+  tileDiag: Double;
 begin
  fn := FileName;
  if (fn = '') or (not FileExists(fn)) then Exit;
@@ -281,6 +303,23 @@ begin
 
   if FTiles <> nil then
    FTiles.BuildFromLas(FLas, 0);
+
+  if (FTiles <> nil) and (cbTileSize <> nil) then
+  begin
+   FTiles.GetGridTileStep(dx, dy);
+   tileDiag := Hypot(dx, dy);
+   if tileDiag > 0 then
+   begin
+    FUpdatingUI := True;
+    try
+     cbTileSize.Text := FloatToStr(Round(tileDiag));
+    finally
+     FUpdatingUI := False;
+    end;
+    cbTileSizeChange(nil);
+   end;
+  end;
+
   FRenderer.ResetView;
   SyncColorModeComboFromTiles;
   UpdateZInfoLabel;

@@ -219,7 +219,7 @@ begin
    vtObject:If V.VObject is TogsBasic then begin
              AsParam:=TogsBasic(V.VObject).WriteObj([]);
             end else
-             AsParam:='Incorrect WriteIn object type '+V.VObject.ClassName;
+             AsParam:='Incorrect WriteIn object type V.VObject = nil';
   end;
 end;
 begin

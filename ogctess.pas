@@ -309,7 +309,6 @@ end;
   end;
   AppendTriangles;
  end;
-
  begin
   Clear;
   if Geom <> nil then

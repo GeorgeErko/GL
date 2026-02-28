@@ -1,4 +1,13 @@
 inherited Map2D2RenderForm: TMap2D2RenderForm
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  inherited propEditor: TValueListEditor
+    ColWidths = (
+      64
+      212
+    )
+  end
   inherited pnlBottom: TPanel
     object sbMode: TSpeedButton[0]
       Left = 555

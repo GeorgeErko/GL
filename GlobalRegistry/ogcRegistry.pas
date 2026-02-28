@@ -76,6 +76,9 @@ type
     procedure SaveToStream(Stream: TogsStream);
     procedure LoadFromStream(Stream: TogsStream);
 
+    procedure SaveToFile(const FileName: String);
+    procedure LoadFromFile(const FileName: String);
+
     property Count: Integer read GetCount;
     property Items[Index: Integer]: TogsRegItem read GetItemByIndex;
   end;
@@ -485,6 +488,41 @@ begin
     item := TogsRegItem.LoadFromStream(Stream);
     if item <> nil then
       fItems.AddObject(item.Key, item);
+  end;
+end;
+
+procedure TogsVarRegistry.SaveToFile(const FileName: String);
+var
+  st: TogsStream;
+begin
+  if FileName = '' then Exit;
+  st := TogsStream.CreateFileStream(FileName, fmCreate or fmShareDenyWrite, nil);
+  try
+    SaveToStream(st);
+  finally
+    st.Free;
+  end;
+end;
+
+procedure TogsVarRegistry.LoadFromFile(const FileName: String);
+var
+  st: TogsStream;
+begin
+  if FileName = '' then Exit;
+  if not FileExists(FileName) then
+  begin
+    Clear;
+    Exit;
+  end;
+
+  st := TogsStream.CreateFileStream(FileName, fmOpenRead or fmShareDenyWrite, nil);
+  try
+    if st.Size > 0 then
+      LoadFromStream(st)
+    else
+      Clear;
+  finally
+    st.Free;
   end;
 end;
 

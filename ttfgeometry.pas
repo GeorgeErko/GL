@@ -34,6 +34,7 @@ type
    property Bounds: TRect read fBounds;
    property Rect: TRect read fRect;
   //
+   function Calculate(Action: TCalcActionSet): Integer; override;
   end;
 
   { TFontCollect }
@@ -515,6 +516,15 @@ begin
  inherited Store(Stream);
 end;
 
+function TFontSymbol.Calculate(Action: TCalcActionSet): Integer;
+begin
+ If calcTess in Action then  begin
+ // WriteIn(['oпыTess=nil', ogsTess = nil, fSymbol]);
+  Result := inherited Calculate(Action);
+ end else
+  Result := inherited Calculate(Action);
+end;
+
 { TFontCollect }
 
 constructor TFontCollect.Create(Selector_: TogsSelector; FileName_: AnsiString; Mode: TLoadMode);
@@ -634,7 +644,11 @@ begin
  If calcTess in Action then
  begin
   FreeAndNil(fSymbolTess);
-  if fSymbol.ogsTess = nil then fSymbol.Calculate([calcTess]);
+ // WriteIn(['Tessnil', fSymbol.ogsTess = nil]);
+  if fSymbol.ogsTess = nil then begin
+  // WriteIn(['Calc', fChar]);
+   fSymbol.Calculate([calcTess]);
+  end;
  end;
 end;
 
@@ -644,7 +658,8 @@ var oldSect: TSect;
     Matrix: TogsMatrix;
     oldTess: TogsTess;
 begin
- If not Visible(ogsSelector.ActiveRect) then exit;
+ If not Visible(ogsSelector.ActiveRect) then
+  If fSymbol.ogsTess = nil then exit;
 // With ogsRect do WriteIn(['Self.Rect=',XMin, YMin, XMax, YMax]);
 // Drawer.DrawSect(ogsRect.Sect);
 // exit;
@@ -882,7 +897,8 @@ begin
   Matrix := SelectMatrix(TogsMatrix.Create(X, Y, mxAngle + fAngle, txScale * mxScale)) else
   Matrix := SelectMatrix(TogsMatrix.Create(fX, fY, fAngle, txScale * fScale));
  try
-  For I := 0 to Count - 1 do Symbol[I].Draw(Drawer);
+  For I := 0 to Count - 1 do
+   Symbol[I].Draw(Drawer);
   If fBlock then Drawer.DrawMarker(X, Y) else
                   Drawer.DrawMarker(fX, fY);
  finally

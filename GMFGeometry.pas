@@ -268,6 +268,7 @@ type
    function AddPrim(Prim: TogsGeometry): Integer; virtual;
   // bBox
    function Calculate(Action: TCalcActionSet): Integer; override;
+   function CalculateTextTess: Integer;
   // захват
    function SelectByPoint(X_, Y_: Double; var Params: TCaptureRec): boolean; override;
    procedure SetSelected(AValue: boolean); override;
@@ -603,7 +604,7 @@ end;
 
 function TgmfBlock.AddPrim(Prim: TogsGeometry): Integer;
 begin
- WriteIN(['Block.AddPrim']);
+// WriteIN(['Block.AddPrim']);
  If Prim is TogsPoint then Prim.Calculate([calcbBox, calcRelation, calcSquare]) else
   If Prim is TogsMultiPoint then Prim.Calculate([calcLength, calcbBox]) else
                                  Prim.Calculate([calcRelation, calcSquare, calcbBox]);
@@ -625,19 +626,58 @@ end;
 
 function TgmfBlock.Calculate(Action: TCalcActionSet): Integer;
 var I: Integer;
+    Poly: TogsPolygon;
+    mPoly: TogsMultiPolygon;
 begin
- Result := Geometry.Calculate(Action);
- if calcTess in Action then
-  for I := 0 to Geometry.Count - 1 do
-  begin
-   if (Geometry.Item[I] is TogsPolygon) or (Geometry.Item[I] is TogsMultiPolygon) then
-    Geometry.Item[I].Calculate([calcTess]);
-  end;
+// If not(calcbBox in Action) and not(calcSortBy in Action) and
+ //    not(calcTess in Action) then }
+      Result := Geometry.Calculate(Action);
  If calcbBox in Action then ogsRect.Sect := Geometry.ogsRect.Sect;
- If calcSortBy in Action then
  // сортируем по площадям примитивов, аналогично GMF
+ If calcSortBy in Action then
+ begin
+  for I := 0 to Geometry.Count - 1 do
+   if (Geometry.Item[I] is TogsPolygon) then
+   begin
+    Poly := TogsPolygon(Geometry.Item[I]);
+    if Poly.Square = -1 then Poly.Calculate([calcSquare]);
+   end else
+   if (Geometry.Item[I] is TogsMultiPolygon) then
+   begin
+    mPoly := TogsMultiPolygon(Geometry.Item[I]);
+    if mPoly.Square = -1 then mPoly.Calculate([calcSquare]);
+   end;
   Result := Geometry.SortByProc(SortByGMFProc, True);
+ end;
  //
+ If calcTess in Action then
+  For I := 0 to Geometry.Count - 1 do
+   If (Geometry.Item[I] is TogsPolygon) then begin
+     Poly := TogsPolygon(Geometry.Item[I]);
+     If Poly.ogsTess = nil then
+      Poly.Calculate([calcTess])
+    end else
+   If (Geometry.Item[I] is TogsMultiPolygon) then begin
+    mPoly := TogsMultiPolygon(Geometry.Item[I]);
+    If mPoly.ogsTess = nil then
+    mPoly.Calculate([calcTess])
+   end else
+   If not (Geometry.Item[I] is TogsTextString) then
+    Geometry.Item[I].Calculate([calcTess]);
+ //
+end;
+
+function TgmfBlock.CalculateTextTess: Integer;
+var I: Integer;
+    Text: TogsTextString;
+begin
+ For I := 0 to Geometry.Count - 1 do
+  If (Geometry.Item[I] is TogsTextString) then begin
+   Text := TogsTextString(Geometry.Item[I]);
+   If Text.fText = '' then continue;
+  // WriteIn(['Text=', Text.fText]);
+   Text.Calculate([calcTess]);
+  end;
 end;
 
 function TgmfBlock.SelectByPoint(X_, Y_: Double; var Params: TCaptureRec): boolean;
@@ -887,6 +927,9 @@ begin
   try
    Result:= gmfblock.Calculate(Action);
    ogsRect.Sect := gmfBlock.Geometry.ogsRect.Sect;
+  // ogsTess
+   If calcTess in Action then
+    gmfBlock.CalculateTextTess;
  //  With ogsRect do WriteIn(['Block.Calculate', XMin, YMin, XMax, YMax]);
  //  WriteIn(['Block.XY', X, Y]);
   finally

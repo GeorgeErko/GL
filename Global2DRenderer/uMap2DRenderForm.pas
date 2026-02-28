@@ -140,30 +140,40 @@ begin
 end;
 
 procedure TMap2DRenderForm.OpenGmfFile(const FileName: String);
+var I: Integer;
 begin
-  if (FileName = '') or (not FileExists(FileName)) then Exit;
-  if FMapObject = nil then Exit;
+  exit;
+  WriteIn(['dsfdgdfgbdhbgdnhgfnfhfhnfhnghnghnh']);
+ if (FileName = '') or (not FileExists(FileName)) then Exit;
+ if FMapObject = nil then Exit;
 
-  FCurrentGmfFile := FileName;
+ FCurrentGmfFile := FileName;
 
-  pnlBottom.Caption := 'Загрузка графики...';
-  pnlBottom.Update;
-  try
-    FMapObject.Clear;
-    FMapObject.OpenFile(FCurrentGmfFile);
-    FSceneDirty := True;
-    FTessPrepared := False;
-    if OpenGLPanel1 <> nil then
-      OpenGLPanel1.Invalidate;
-  finally
-    if FInspector <> nil then
-      FInspector.Clear;
-    if FDrawer <> nil then
-      FDrawer.ClearDebugLabels;
-    ClearSelection;
-    pnlBottom.Caption := '';
-    pnlBottom.Update;
-  end;
+ pnlBottom.Caption := 'Загрузка графики...';
+ pnlBottom.Update;
+ try
+   FMapObject.Clear;
+   FMapObject.OpenFile(FCurrentGmfFile);
+   FMapObject.UpdateObject(True);
+   For I := 0 to FMapObject.Count - 1 do
+   begin
+    with FMapObject.Geometry[I].ogsRect do
+     If YMax = FMapObject.ogsSelector.ActiveRect.YMax then
+      FDrawer.AddDebugLabel(XMax, YMAx, 'max');
+   end;
+   FSceneDirty := True;
+   FTessPrepared := False;
+   if OpenGLPanel1 <> nil then
+     OpenGLPanel1.Invalidate;
+ finally
+   if FInspector <> nil then
+     FInspector.Clear;
+   if FDrawer <> nil then
+     FDrawer.ClearDebugLabels;
+   ClearSelection;
+   pnlBottom.Caption := '';
+   pnlBottom.Update;
+ end;
 end;
 
 procedure SaveLastDirGmf(const Dir: String);
@@ -284,13 +294,13 @@ begin
     FDrawer.ReleaseGL;
   except
   end;
-  WriteIn([2]);
+ WriteIn([2]);
  FreeAndNil(FSelectedIDs);
  FreeAndNil(FIdToGeom);
  FreeAndNil(FIdToOrder);
  FreeAndNil(FMapObject);
  FreeAndNil(FDrawer);
-   WriteIn([3]);
+ WriteIn([3]);
 end;
 
 procedure TMap2DRenderForm.MenuFileOpenClick(Sender: TObject);
@@ -316,6 +326,7 @@ begin
   FMapObject.OpenFile(FCurrentGmfFile);
   FSceneDirty := True;
   FTessPrepared := False;
+  WriteIn([FMapObject.ogsSelector.GlobalRect, FMapObject.ogsSelector.ActiveRect]);
   OpenGLPanel1.Invalidate;
 //
  finally
@@ -497,6 +508,7 @@ var i: Integer;
 begin
  if FDrawer = nil then Exit;
  if FMapObject = nil then Exit;
+ pnlBottom.Caption := 'Подготовка сцены...'; pnlBottom.Update;
  if (not FTessPrepared) and (FMapObject.Geometry <> nil) then
  begin
   for i := 0 to FMapObject.PLib.Count - 1 do
@@ -504,10 +516,10 @@ begin
   for i := 0 to FMapObject.Geometry.Count - 1 do
   begin
    geom := FMapObject.Geometry.Item[i];
-   if geom = nil then Continue;
    geom.Calculate([calcTess]);
-   if (geom is TgmfPoint) and (TgmfPoint(geom).gmfBlock <> nil) then
+   if (geom is TgmfPoint) and (TgmfPoint(geom).gmfBlock <> nil) then begin
     TgmfPoint(geom).gmfBlock.Calculate([calcTess]);
+   end;
   end;
   FTessPrepared := True;
  end;
@@ -531,8 +543,7 @@ begin
  if FIdToOrder <> nil then FIdToOrder.Clear;
  FDrawer.Indexer := idx;
  FDrawer.BeginScene;
- total := 0;
- if (FMapObject.Geometry <> nil) then total := FMapObject.Geometry.Count;
+ total := FMapObject.Geometry.Count;
  if PBScene <> nil then
  begin
   PBScene.Min := 0;

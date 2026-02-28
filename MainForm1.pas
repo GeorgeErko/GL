@@ -386,7 +386,7 @@ begin
  If ODGmf.Execute then begin
   ogsObject.Clear;
   ogsObject.OpenFile(ODGmf.FileName);
-//  ogsObject.ogsSelector.UpdateRects(True);
+ // ogsObject.UpdateObject(True);
 //  Drawer.DoOnPaint(Sender);
  end;
 end;

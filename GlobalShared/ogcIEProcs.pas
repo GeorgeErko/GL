@@ -193,7 +193,7 @@ end;
 function ieCreateBlock(Obj: hObj; blockName: PChar; X, Y, Z: Double): hObj; stdcall;
 var P: TgmfBlock;
 begin
- WriteIn(['AddBlock']);
+// WriteIn(['AddBlock']);
  Result :=  0;
  If not Check(Obj, TogsMapObject, Assigned(TIEObject(Obj).cbRec.CreateBlock),
                'CreateBlock', $FF) then exit;

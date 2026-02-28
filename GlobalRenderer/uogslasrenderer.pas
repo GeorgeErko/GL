@@ -44,6 +44,7 @@ type
   FZoomToPlaneEnabled: Boolean;
   FZoomToPlaneK: Double;
   FShowTileBBoxes: Boolean;
+  FDynaLodTileSize: Double;
   procedure SetMode(AValue: TRenderMode);
   procedure SetShowTileBBoxes(AValue: Boolean);
   function DefaultDistance3D: Double;
@@ -83,6 +84,7 @@ type
   property ZoomToPlaneEnabled: Boolean read FZoomToPlaneEnabled write FZoomToPlaneEnabled;
   property ZoomToPlaneK: Double read FZoomToPlaneK write FZoomToPlaneK;
   property ShowTileBBoxes: Boolean read FShowTileBBoxes write SetShowTileBBoxes;
+  property DynaLodTileSize: Double read FDynaLodTileSize write FDynaLodTileSize;
  end;
 
 implementation
@@ -123,6 +125,7 @@ begin
  FZoomToPlaneEnabled := True;
  FZoomToPlaneK := 0.1;
  FShowTileBBoxes := False;
+ FDynaLodTileSize := 100;
 end;
 
 procedure TLasRenderer.SaveState;
@@ -150,6 +153,7 @@ begin
    ini.WriteBool('Render', 'ZoomToPlane', FZoomToPlaneEnabled);
    ini.WriteFloat('Render', 'ZoomToPlaneK', FZoomToPlaneK);
    ini.WriteBool('Render', 'ShowTiles', FShowTileBBoxes);
+   ini.WriteFloat('Render', 'DynaLodTileSize', FDynaLodTileSize);
   finally
    ini.Free;
   end;
@@ -193,6 +197,10 @@ begin
    if IsNan(FZoomToPlaneK) or IsInfinite(FZoomToPlaneK) then
     FZoomToPlaneK := 0.1;
    SetShowTileBBoxes(ini.ReadBool('Render', 'ShowTiles', FShowTileBBoxes));
+
+   FDynaLodTileSize := ini.ReadFloat('Render', 'DynaLodTileSize', FDynaLodTileSize);
+   if IsNan(FDynaLodTileSize) or IsInfinite(FDynaLodTileSize) or (FDynaLodTileSize < 0) then
+    FDynaLodTileSize := 100;
   finally
    ini.Free;
   end;
@@ -286,20 +294,29 @@ begin
 end;
 
 procedure TLasRenderer.Render;
-var proj, mv, mvp: TMat4;
-    w, h: Integer;
-    aspect: Double;
-    zNear, zFar: Double;
-    cx, cy, cz: Double;
-    distance: Double;
-    defaultDistance: Double;
-    effectiveDistance: Double;
-    frac: Single;
-    effectivePointSize: Single;
-    minX, minY, minZ: Double;
-    maxX, maxY, maxZ: Double;
-    originX, originY, originZ: Double;
-    zPlane: Double;
+var
+ proj, mv: TMat4;
+ mvp: TMat4;
+ w, h: Integer;
+ aspect: Double;
+ zNear, zFar: Double;
+ cx, cy, cz: Double;
+ distance: Double;
+ defaultDistance: Double;
+ effectiveDistance: Double;
+ frac: Single;
+ effectivePointSize: Single;
+ minX, minY, minZ: Double;
+ maxX, maxY, maxZ: Double;
+ originX, originY, originZ: Double;
+ zPlane: Double;
+ tileMinX, tileMinY, tileMaxX, tileMaxY: Double;
+ tileCx, tileCy: Double;
+ yawRad, pitchRad: Double;
+ camX, camY: Double;
+ distToTile: Double;
+ tileLimit: Double;
+ i: Integer;
 begin
  if (FOGL = nil) or (FTiles = nil) then Exit;
  if (FLas = nil) or (not FLas.Loaded) then Exit;
@@ -351,15 +368,7 @@ begin
   cx := 0;
   cy := 0;
   cz := 0;
-  distance := Max(Max(FLas.Source.Header.MaxX - FLas.Source.Header.MinX,
-                      FLas.Source.Header.MaxY - FLas.Source.Header.MinY),
-                  FLas.Source.Header.MaxZ - FLas.Source.Header.MinZ) * 2;
-  if distance < 10 then distance := 10;
-  if FAutoDistance or IsNan(FDistance) or IsInfinite(FDistance) then
-   distance := distance
-  else
-   distance := FDistance;
-  if distance <= 0 then distance := 1E-6;
+  distance := effectiveDistance;
   glTranslated(0, 0, -distance);
   glRotated(FPitch, 1, 0, 0);
   glRotated(FYaw, 0, 0, 1);
@@ -375,6 +384,24 @@ begin
  effectivePointSize := EnsureRange(FPointSize, 1.0, 4.0);
  if FMode = rm3D then
  begin
+  if (FLas <> nil) and (FLas.Source <> nil) and (FLas.Source.IsOpen) then
+  begin
+   minZ := FLas.Source.Header.MinZ;
+   maxZ := FLas.Source.Header.MaxZ;
+   if FTiles <> nil then
+    FTiles.GetGridXYBBox(minX, minY, maxX, maxY, originX, originY)
+   else
+   begin
+    minX := FLas.Source.Header.MinX;
+    minY := FLas.Source.Header.MinY;
+    maxX := FLas.Source.Header.MaxX;
+    maxY := FLas.Source.Header.MaxY;
+    originX := (minX + maxX) * 0.5;
+    originY := (minY + maxY) * 0.5;
+   end;
+   originZ := (minZ + maxZ) * 0.5;
+  end;
+
   if FBlendEnabled then
   begin
    glEnable(GL_BLEND);
@@ -386,21 +413,41 @@ begin
    FTiles.RenderDyna(mvp, effectivePointSize, FAlpha, FClipEnabled, FClipZ)
   else if frac < 1 then
    FTiles.RenderProgress(mvp, effectivePointSize, FAlpha, frac, FClipEnabled, FClipZ)
+  else if (FDynaLodTileSize > 0) and (FTiles <> nil) and (originX = originX) and (originY = originY) then
+  begin
+   yawRad := DegToRad(FYaw);
+   pitchRad := DegToRad(FPitch);
+   camX := distance * Sin(pitchRad) * Sin(yawRad) - FPanX;
+   camY := distance * Sin(pitchRad) * Cos(yawRad) - FPanY;
+   tileLimit := FDynaLodTileSize;
+
+   for i := 0 to FTiles.TileCount - 1 do
+   begin
+    if not FTiles.GetTileRect(i, tileMinX, tileMinY, tileMaxX, tileMaxY) then
+     Continue;
+    tileCx := ((tileMinX + tileMaxX) * 0.5) - originX;
+    tileCy := ((tileMinY + tileMaxY) * 0.5) - originY;
+    distToTile := Hypot(tileCx - camX, tileCy - camY);
+
+    if distToTile >= tileLimit then
+    begin
+     if FTiles.TilesDyna[i] <> nil then
+      FTiles.TilesDyna[i].Render(mvp, effectivePointSize, FAlpha, FClipEnabled, FClipZ)
+     else if FTiles.Tiles[i] <> nil then
+      FTiles.Tiles[i].Render(mvp, effectivePointSize, FAlpha, FClipEnabled, FClipZ);
+    end
+    else
+    begin
+     if FTiles.Tiles[i] <> nil then
+      FTiles.Tiles[i].Render(mvp, effectivePointSize, FAlpha, FClipEnabled, FClipZ);
+    end;
+   end;
+  end
   else
    FTiles.Render(mvp, effectivePointSize, FAlpha, FClipEnabled, FClipZ);
 
   if (FLas <> nil) and (FLas.Source <> nil) and (FLas.Source.IsOpen) then
   begin
-   minX := FLas.Source.Header.MinX;
-   minY := FLas.Source.Header.MinY;
-   minZ := FLas.Source.Header.MinZ;
-   maxX := FLas.Source.Header.MaxX;
-   maxY := FLas.Source.Header.MaxY;
-   maxZ := FLas.Source.Header.MaxZ;
-   originX := (minX + maxX) * 0.5;
-   originY := (minY + maxY) * 0.5;
-   originZ := (minZ + maxZ) * 0.5;
-
    if FTiles <> nil then
     FTiles.RenderTileBBoxes((minZ), (maxZ));
 
