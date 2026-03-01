@@ -13,7 +13,7 @@ type
  TRenderMode = (rmOrtho2D, rm3D);
 
  TLasRenderer = class
- private
+ protected
   FOGL: TOpenGLPanel;
   FLas: TogsLas;
   FTiles: TLasPointCloudTiles;
@@ -45,19 +45,24 @@ type
   FZoomToPlaneK: Double;
   FShowTileBBoxes: Boolean;
   FDynaLodTileSize: Double;
+  FPanPlaneZ: Double;
+  FPanPlaneAnchorX: Double;
+  FPanPlaneAnchorY: Double;
+  FPanPlaneAnchorValid: Boolean;
   procedure SetMode(AValue: TRenderMode);
-  procedure SetShowTileBBoxes(AValue: Boolean);
-  function DefaultDistance3D: Double;
-  procedure Zoom3DBy(const ADeltaDist: Double; const AMouseX, AMouseY: Integer);
+  procedure SetShowTileBBoxes(AValue: Boolean); virtual;
+  function DefaultDistance3D: Double; virtual;
+  procedure Zoom3DBy(const ADeltaDist: Double; const AMouseX, AMouseY: Integer); virtual;
+  function RayPlaneIntersect(const AMouseX, AMouseY: Integer; const APlaneZ: Double; out AX, AY: Double): Boolean; virtual;
  public
   constructor Create(AOGL: TOpenGLPanel; ALas: TogsLas; ATiles: TLasPointCloudTiles);
   destructor Destroy; override;
-  procedure InitGL;
-  procedure Render;
-  procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
-  procedure MouseMove(Shift: TShiftState; X, Y: Integer);
-  procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
-  procedure MouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint);
+  procedure InitGL; virtual;
+  procedure Render; virtual;
+  procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); virtual;
+  procedure MouseMove(Shift: TShiftState; X, Y: Integer); virtual;
+  procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); virtual;
+  procedure MouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint); virtual;
   procedure ResetView;
   procedure SaveState;
   procedure LoadState;
@@ -126,6 +131,82 @@ begin
  FZoomToPlaneK := 0.1;
  FShowTileBBoxes := False;
  FDynaLodTileSize := 100;
+ FPanPlaneZ := 0;
+ FPanPlaneAnchorX := 0;
+ FPanPlaneAnchorY := 0;
+ FPanPlaneAnchorValid := False;
+end;
+
+function TLasRenderer.RayPlaneIntersect(const AMouseX, AMouseY: Integer; const APlaneZ: Double; out AX, AY: Double): Boolean;
+var
+ w, h: Integer;
+ aspect: Double;
+ nx, ny: Double;
+ tanHalfFov: Double;
+ dirCamX, dirCamY, dirCamZ: Double;
+ yawRad, pitchRad: Double;
+ rightX, rightY, rightZ: Double;
+ fwdX, fwdY, fwdZ: Double;
+ upX, upY, upZ: Double;
+ dirX, dirY, dirZ: Double;
+ camX, camY, camZ: Double;
+ distance: Double;
+ t: Double;
+begin
+ Result := False;
+ AX := 0;
+ AY := 0;
+
+ if (FOGL = nil) then Exit;
+ w := FOGL.Width;
+ h := FOGL.Height;
+ if (w <= 0) or (h <= 0) then Exit;
+
+ if (FDistance <= 0) or IsNan(FDistance) or IsInfinite(FDistance) then
+  distance := DefaultDistance3D
+ else
+  distance := FDistance;
+ if distance <= 0 then distance := 1E-6;
+
+ yawRad := DegToRad(FYaw);
+ pitchRad := DegToRad(FPitch);
+
+ camX := distance * Sin(pitchRad) * Sin(yawRad) - FPanX;
+ camY := distance * Sin(pitchRad) * Cos(yawRad) - FPanY;
+ camZ := distance * Cos(pitchRad) - FPanZ;
+
+ rightX := Cos(yawRad);
+ rightY := -Sin(yawRad);
+ rightZ := 0;
+
+ fwdX := -Sin(pitchRad) * Sin(yawRad);
+ fwdY := -Sin(pitchRad) * Cos(yawRad);
+ fwdZ := -Cos(pitchRad);
+
+ upX := rightY * fwdZ - rightZ * fwdY;
+ upY := rightZ * fwdX - rightX * fwdZ;
+ upZ := rightX * fwdY - rightY * fwdX;
+
+ aspect := w / Double(h);
+ nx := (2.0 * (AMouseX + 0.5) / w) - 1.0;
+ ny := 1.0 - (2.0 * (AMouseY + 0.5) / h);
+
+ tanHalfFov := Tan(DegToRad(FFovDeg) * 0.5);
+ dirCamX := nx * aspect * tanHalfFov;
+ dirCamY := ny * tanHalfFov;
+ dirCamZ := -1.0;
+
+ dirX := rightX * dirCamX + upX * dirCamY + fwdX * (-dirCamZ);
+ dirY := rightY * dirCamX + upY * dirCamY + fwdY * (-dirCamZ);
+ dirZ := rightZ * dirCamX + upZ * dirCamY + fwdZ * (-dirCamZ);
+
+ if Abs(dirZ) < 1E-12 then Exit;
+ t := (APlaneZ - camZ) / dirZ;
+ if (t <= 0) or IsNan(t) or IsInfinite(t) then Exit;
+
+ AX := camX + dirX * t;
+ AY := camY + dirY * t;
+ Result := True;
 end;
 
 procedure TLasRenderer.SaveState;
@@ -477,11 +558,31 @@ begin
 end;
 
 procedure TLasRenderer.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var
+ minZ, maxZ, originZ: Double;
+ planeZ: Double;
+ ax, ay: Double;
 begin
  FDown := True;
  FDownButton := Button;
  FLastX := X;
  FLastY := Y;
+
+ FPanPlaneAnchorValid := False;
+ if (FMode = rm3D) and (Button = mbMiddle) and (FLas <> nil) and FLas.Loaded and (FLas.Source <> nil) and (FLas.Source.IsOpen) then
+ begin
+  minZ := FLas.Source.Header.MinZ;
+  maxZ := FLas.Source.Header.MaxZ;
+  originZ := (minZ + maxZ) * 0.5;
+  planeZ := (minZ + FPlaneDeltaZ) - originZ;
+  FPanPlaneZ := planeZ;
+  if RayPlaneIntersect(X, Y, planeZ, ax, ay) then
+  begin
+   FPanPlaneAnchorX := ax;
+   FPanPlaneAnchorY := ay;
+   FPanPlaneAnchorValid := True;
+  end;
+ end;
 end;
 
 procedure TLasRenderer.MouseMove(Shift: TShiftState; X, Y: Integer);
@@ -493,6 +594,7 @@ var dx, dy: Integer;
     yawRad, pitchRad: Double;
     rightX, rightY, rightZ: Double;
     upX, upY, upZ: Double;
+    ax, ay: Double;
 begin
  if not FDown then Exit;
  dx := X - FLastX;
@@ -559,7 +661,11 @@ begin
   end
   else if FDownButton = mbMiddle then
   begin
-   Zoom3DBy(-dy * ZoomStepMeters, X, Y);
+   if FPanPlaneAnchorValid and RayPlaneIntersect(X, Y, FPanPlaneZ, ax, ay) then
+   begin
+    FPanX := FPanX + (ax - FPanPlaneAnchorX) * 0.2;
+    FPanY := FPanY + (ay - FPanPlaneAnchorY) * 0.2;
+   end;
   end;
  end;
 end;

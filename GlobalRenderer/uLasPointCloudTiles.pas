@@ -126,6 +126,7 @@ type
   property TileCount: Integer read GetTileCount;
   property Tiles[Index: Integer]: TLasPointCloudGpu read GetTile;
   property TilesDyna[Index: Integer]: TLasPointCloudGpu read GetTileDyna;
+  property GLReady: Boolean read FGLReady;
   property TotalCount: Int64 read FTotalCount;
   property TotalCountDyna: Int64 read FTotalCountDyna;
  end;

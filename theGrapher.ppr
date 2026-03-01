@@ -16,7 +16,7 @@ uses
  ogcBitmap, ogcTileLayer, ogcPlayer, ogcClipPolyline, ogcLas,
  ogctess, uMap2DRenderForm, uBitHash, objMouse, ogcRegistry,
  uLasMmapSource24, uLasPointCloudTiles, uLasAutoStatesForm, uLasViewRenderer,
- uogslasrenderer, uMainVector,
+ uogslasrenderer, uLasFileContext, uLasSceneController, uMainVector,
  ogcDrawerOGL2, uMap2D2RenderForm;
 
 {$R *.res}

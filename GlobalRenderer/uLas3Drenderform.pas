@@ -6,8 +6,9 @@ interface
 
 uses
  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ExtCtrls, OpenGLPanel,
- Menus, ComCtrls, StdCtrls, Spin, Buttons, IniFiles, Math,
- uogslasrenderer, ogcLas, uLasPointCloudTiles, ogcBasic, ogcRegistry, plugTrees;
+ Menus, ComCtrls, StdCtrls, Spin, Buttons, ComboEx, IniFiles, Math,
+ uogslasrenderer, ogcLas, uLasPointCloudTiles, ogcBasic, ogcRegistry, plugTrees,
+ uLasFileContext, uLasSceneController;
 
 type
 
@@ -21,9 +22,18 @@ type
   ButtonReset: TButton;
   cbTileSize: TComboBox;
   ColorModeCombo: TComboBox;
+  cbClouds: TComboBox;
   DeltaZEdit: TFloatSpinEdit;
   kZoom: TCheckBox;
+  Label2: TLabel;
+  Label3: TLabel;
+  Panel1: TPanel;
+  r3sbAddLas1: TSpeedButton;
+  r3sbAddLas2: TSpeedButton;
+  r3sbOpen: TSpeedButton;
   r3sbOpen1: TSpeedButton;
+  r3sbAddLas: TSpeedButton;
+  sbRun1: TSpeedButton;
   ZoomKEdit: TFloatSpinEdit;
   Label1: TLabel;
   LabelCamera: TLabel;
@@ -39,10 +49,10 @@ type
   PlaneCheck: TCheckBox;
   ProgressBar1: TProgressBar;
   r3pnlTop: TPanel;
-  r3sbOpen: TSpeedButton;
   TilesCheck: TCheckBox;
   UpdateTimer: TTimer;
   UpDown1: TUpDown;
+  procedure cbCloudsChange(Sender: TObject);
   procedure cbTileSizeChange(Sender: TObject);
   procedure FormCreate(Sender: TObject);
   procedure FormDestroy(Sender: TObject);
@@ -59,14 +69,15 @@ type
   procedure Button2DClick(Sender: TObject);
   procedure Button3DClick(Sender: TObject);
   procedure ButtonResetClick(Sender: TObject);
+  procedure Panel1Click(Sender: TObject);
   procedure PointSizeSpinChange(Sender: TObject);
   procedure UIChanged(Sender: TObject);
   procedure ColorModeComboChange(Sender: TObject);
   procedure UpdateTimerTimer(Sender: TObject);
   procedure UpDown1Click(Sender: TObject; Button: TUDBtnType);
+  procedure r3sbAddLasClick(Sender: TObject);
  private
-  FLas: TogsLas;
-  FTiles: TLasPointCloudTiles;
+  FScene: TLasSceneController;
   FRenderer: TLasRenderer;
   FTreeList: TplugTreeList;
   FGLInited: Boolean;
@@ -78,6 +89,10 @@ type
   FLastPaintTick: QWord;
   FLxtFileName: String;
   FCurrentLasFile: String;
+  function ActiveContext: TLasFileContext;
+  procedure RebuildCloudsCombo;
+  function GetLas: TogsLas;
+  function GetTiles: TLasPointCloudTiles;
   procedure OnTilesProgress(Sender: TObject; APos, AMax: Integer);
   procedure UpdateCameraLabel;
   procedure UpdateZInfoLabel;
@@ -89,6 +104,8 @@ type
   OwnerForm: TForm;
   function CurrentLasFile: String;
   procedure OpenLasFile(const FileName: String);
+  property Las: TogsLas read GetLas;
+  property Tiles: TLasPointCloudTiles read GetTiles;
  end;
 
 var
@@ -171,10 +188,8 @@ end;
 procedure TLas3DRenderForm.FormCreate(Sender: TObject);
 begin
 // Menu := nil;
- FLas := TogsLas.Create(nil);
- FTiles := TLasPointCloudTiles.Create;
- FTiles.OnProgress := OnTilesProgress;
- FRenderer := TLasRenderer.Create(OpenGLPanel1, FLas, FTiles);
+ FScene := TLasSceneController.Create(OpenGLPanel1);
+ FRenderer := FScene;
  FTreeList := TplugTreeList.Create(OpenGLPanel1);
  FGLInited := False;
  FUpdatingUI := False;
@@ -194,6 +209,10 @@ begin
  UpDown1.Position := 2;
  if cbTileSize <> nil then
   cbTileSize.OnChange := cbTileSizeChange;
+ if cbClouds <> nil then
+  cbClouds.OnChange := cbCloudsChange;
+ if r3sbAddLas <> nil then
+  r3sbAddLas.OnClick := r3sbAddLasClick;
  //
  PopulateColorModeCombo;
  SyncColorModeComboFromTiles;
@@ -223,9 +242,230 @@ procedure TLas3DRenderForm.FormDestroy(Sender: TObject);
 begin
  SaveSettings;
  FreeAndNil(FTreeList);
- FreeAndNil(FRenderer);
- FreeAndNil(FTiles);
- FreeAndNil(FLas);
+ FRenderer := nil;
+ FreeAndNil(FScene);
+end;
+
+function TLas3DRenderForm.GetLas: TogsLas;
+begin
+ if ActiveContext <> nil then
+  Result := ActiveContext.Las
+ else
+  Result := nil;
+end;
+
+function TLas3DRenderForm.GetTiles: TLasPointCloudTiles;
+begin
+ if ActiveContext <> nil then
+  Result := ActiveContext.Tiles
+ else
+  Result := nil;
+end;
+
+function TLas3DRenderForm.ActiveContext: TLasFileContext;
+begin
+ Result := nil;
+ if (cbClouds = nil) then Exit;
+ if (cbClouds.ItemIndex < 0) or (cbClouds.ItemIndex >= cbClouds.Items.Count) then Exit;
+ Result := TLasFileContext(cbClouds.Items.Objects[cbClouds.ItemIndex]);
+end;
+
+procedure TLas3DRenderForm.RebuildCloudsCombo;
+var
+ i: Integer;
+ ctx: TLasFileContext;
+ fn: String;
+ activeIdx: Integer;
+begin
+ if (cbClouds = nil) or (FScene = nil) then Exit;
+ FUpdatingUI := True;
+ try
+  activeIdx := cbClouds.ItemIndex;
+  cbClouds.Items.BeginUpdate;
+  try
+   cbClouds.Items.Clear;
+   for i := 0 to FScene.ContextCount - 1 do
+   begin
+    ctx := FScene.Contexts[i];
+    if (ctx = nil) then Continue;
+    fn := ExtractFileName(ctx.FileName);
+    cbClouds.Items.AddObject(fn, ctx);
+   end;
+  finally
+   cbClouds.Items.EndUpdate;
+  end;
+  if (activeIdx >= 0) and (activeIdx < cbClouds.Items.Count) then
+   cbClouds.ItemIndex := activeIdx
+  else if cbClouds.Items.Count > 0 then
+   cbClouds.ItemIndex := 0;
+ finally
+  FUpdatingUI := False;
+ end;
+end;
+
+procedure TLas3DRenderForm.cbCloudsChange(Sender: TObject);
+begin
+ if FUpdatingUI then Exit;
+ SyncColorModeComboFromTiles;
+ if (cbTileSize <> nil) and (FRenderer <> nil) then
+ begin
+  FUpdatingUI := True;
+  try
+   cbTileSize.Text := FloatToStr(FRenderer.DynaLodTileSize);
+  finally
+   FUpdatingUI := False;
+  end;
+ end;
+ UpdateZInfoLabel;
+ OpenGLPanel1.Invalidate;
+end;
+
+procedure TLas3DRenderForm.r3sbAddLasClick(Sender: TObject);
+var
+ dlg: TOpenDialog;
+ fn: String;
+ i: Integer;
+ ctx: TLasFileContext;
+ pdrf: Integer;
+begin
+ if FScene = nil then Exit;
+ dlg := ODLAS;
+ if dlg <> nil then
+  dlg.Options := dlg.Options + [ofAllowMultiSelect];
+ if (dlg = nil) or (not dlg.Execute) then Exit;
+ if (dlg.Files <> nil) and (dlg.Files.Count > 0) then
+  fn := dlg.Files[0]
+ else
+  fn := dlg.FileName;
+ if (fn = '') or (not FileExists(fn)) then Exit;
+
+ ProgressBar1.Visible := True;
+ ProgressBar1.Position := 0;
+ Application.ProcessMessages;
+ Screen.Cursor := crHourglass;
+ try
+  if (dlg.Files <> nil) and (dlg.Files.Count > 0) then
+  begin
+   for i := 0 to dlg.Files.Count - 1 do
+   begin
+    fn := dlg.Files[i];
+    if (fn = '') or (not FileExists(fn)) then
+     Continue;
+
+    ctx := FScene.AddContext;
+    if ctx.Tiles <> nil then
+     ctx.Tiles.OnProgress := OnTilesProgress;
+    if not ctx.Open(fn) then
+    begin
+     ShowMessage('Не удалось открыть LAS файл');
+     Continue;
+    end;
+
+    if FScene <> nil then
+     FScene.LoadPoslOnceFromDir(ExtractFileDir(fn));
+
+    if FScene <> nil then
+     FScene.MarkBBoxDirty;
+
+    FCurrentLasFile := fn;
+    FLxtFileName := ChangeFileExt(fn, '.lxt');
+    FRenderer.StateFileName := FLxtFileName;
+
+    if (ctx.Tiles <> nil) and (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+    begin
+     pdrf := ctx.Las.Source.Header.PointDataRecordFormat;
+     case pdrf of
+      2, 3, 5, 7, 8, 10: ctx.Tiles.ColorMode := lpcmRGB;
+     else
+      ctx.Tiles.ColorMode := lpcmIntensity;
+     end;
+    end;
+
+    LoadSettings;
+
+    if (ctx.Tiles <> nil) and OpenGLPanel1.MakeCurrent then
+    begin
+     if not FGLInited then
+     begin
+      ReadExtensions;
+      ReadImplementationProperties;
+      if Assigned(wglSwapIntervalEXT) then
+       wglSwapIntervalEXT(0);
+      FGLInited := True;
+     end;
+     ctx.Tiles.InitGL;
+    end;
+
+    if (ctx.Tiles <> nil) and (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+     ctx.Tiles.BuildFromLas(ctx.Las, 0);
+   end;
+  end
+  else
+  begin
+   fn := dlg.FileName;
+   if (fn <> '') and FileExists(fn) then
+   begin
+    ctx := FScene.AddContext;
+    if ctx.Tiles <> nil then
+     ctx.Tiles.OnProgress := OnTilesProgress;
+    if not ctx.Open(fn) then
+    begin
+     ShowMessage('Не удалось открыть LAS файл');
+    end
+    else
+    begin
+     if FScene <> nil then
+      FScene.LoadPoslOnceFromDir(ExtractFileDir(fn));
+
+     if FScene <> nil then
+      FScene.MarkBBoxDirty;
+
+     FCurrentLasFile := fn;
+     FLxtFileName := ChangeFileExt(fn, '.lxt');
+     FRenderer.StateFileName := FLxtFileName;
+
+     if (ctx.Tiles <> nil) and (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+     begin
+      pdrf := ctx.Las.Source.Header.PointDataRecordFormat;
+      case pdrf of
+       2, 3, 5, 7, 8, 10: ctx.Tiles.ColorMode := lpcmRGB;
+      else
+       ctx.Tiles.ColorMode := lpcmIntensity;
+      end;
+     end;
+
+     LoadSettings;
+
+     if (ctx.Tiles <> nil) and OpenGLPanel1.MakeCurrent then
+     begin
+      if not FGLInited then
+      begin
+       ReadExtensions;
+       ReadImplementationProperties;
+       if Assigned(wglSwapIntervalEXT) then
+        wglSwapIntervalEXT(0);
+       FGLInited := True;
+      end;
+      ctx.Tiles.InitGL;
+     end;
+
+     if (ctx.Tiles <> nil) and (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+      ctx.Tiles.BuildFromLas(ctx.Las, 0);
+    end;
+   end;
+  end;
+
+  RebuildCloudsCombo;
+  if (cbClouds <> nil) and (cbClouds.Items.Count > 0) then
+   cbClouds.ItemIndex := cbClouds.Items.Count - 1;
+  FRenderer.ResetView;
+  SyncColorModeComboFromTiles;
+  UpdateZInfoLabel;
+  OpenGLPanel1.Invalidate;
+ finally
+  Screen.Cursor := crDefault;
+  ProgressBar1.Visible := False;
+ end;
 end;
 
 procedure TLas3DRenderForm.LabelCameraClick(Sender: TObject);
@@ -239,8 +479,12 @@ var
   dlg: TOpenDialog;
   fn: String;
   lastDir: String;
+  i: Integer;
 begin
  dlg := ODLAS;
+
+ if dlg <> nil then
+  dlg.Options := dlg.Options + [ofAllowMultiSelect];
 
  if dlg <> nil then
  begin
@@ -250,25 +494,35 @@ begin
  end;
 
  if (dlg = nil) or (not dlg.Execute) then Exit;
- fn := dlg.FileName;
+ if (dlg.Files <> nil) and (dlg.Files.Count > 0) then
+  fn := dlg.Files[0]
+ else
+  fn := dlg.FileName;
 
  if fn <> '' then
    SaveRegStr(REG_KEY_LAST_DIR_LAS, ExtractFileDir(fn));
 
- OpenLasFile(fn);
+ if (dlg.Files <> nil) and (dlg.Files.Count > 0) then
+ begin
+  for i := 0 to dlg.Files.Count - 1 do
+   OpenLasFile(dlg.Files[i]);
+ end
+ else
+  OpenLasFile(fn);
 end;
 
 function TLas3DRenderForm.CurrentLasFile: String;
 begin
-  Result := FCurrentLasFile;
+ Result := FCurrentLasFile;
 end;
 
 procedure TLas3DRenderForm.OpenLasFile(const FileName: String);
 var
-  fn: String;
-  pdrf: Integer;
-  dx, dy: Double;
-  tileDiag: Double;
+ fn: String;
+ pdrf: Integer;
+ dx, dy: Double;
+ tileDiag: Double;
+ ctx: TLasFileContext;
 begin
  fn := FileName;
  if (fn = '') or (not FileExists(fn)) then Exit;
@@ -279,34 +533,57 @@ begin
  Application.ProcessMessages;
  Screen.Cursor := crHourglass;
  try
-  if not FLas.OpenLasFile(fn, 0, 0) then
+  if FScene = nil then Exit;
+  ctx := FScene.AddContext;
+  if ctx.Tiles <> nil then
+   ctx.Tiles.OnProgress := OnTilesProgress;
+  if not ctx.Open(fn) then
   begin
    ShowMessage('Не удалось открыть LAS файл');
    ProgressBar1.Visible := False;
    Exit;
   end;
+
+  if FScene <> nil then
+   FScene.LoadPoslOnceFromDir(ExtractFileDir(fn));
+
+  if FScene <> nil then
+   FScene.MarkBBoxDirty;
   FCurrentLasFile := fn;
   FLxtFileName := ChangeFileExt(fn, '.lxt');
   FRenderer.StateFileName := FLxtFileName;
 
-  if (FTiles <> nil) and (FLas <> nil) and (FLas.Source <> nil) and (FLas.Source.IsOpen) then
+  if (ctx.Tiles <> nil) and (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
   begin
-   pdrf := FLas.Source.Header.PointDataRecordFormat;
+   pdrf := ctx.Las.Source.Header.PointDataRecordFormat;
    case pdrf of
-    2, 3, 5, 7, 8, 10: FTiles.ColorMode := lpcmRGB;
+    2, 3, 5, 7, 8, 10: ctx.Tiles.ColorMode := lpcmRGB;
    else
-    FTiles.ColorMode := lpcmIntensity;
+    ctx.Tiles.ColorMode := lpcmIntensity;
    end;
   end;
 
   LoadSettings;
 
-  if FTiles <> nil then
-   FTiles.BuildFromLas(FLas, 0);
-
-  if (FTiles <> nil) and (cbTileSize <> nil) then
+  if (ctx.Tiles <> nil) and OpenGLPanel1.MakeCurrent then
   begin
-   FTiles.GetGridTileStep(dx, dy);
+   if not FGLInited then
+   begin
+    ReadExtensions;
+    ReadImplementationProperties;
+    if Assigned(wglSwapIntervalEXT) then
+     wglSwapIntervalEXT(0);
+    FGLInited := True;
+   end;
+   ctx.Tiles.InitGL;
+  end;
+
+  if (ctx.Tiles <> nil) and (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+   ctx.Tiles.BuildFromLas(ctx.Las, 0);
+
+  if (ctx.Tiles <> nil) and (cbTileSize <> nil) then
+  begin
+   ctx.Tiles.GetGridTileStep(dx, dy);
    tileDiag := Hypot(dx, dy);
    if tileDiag > 0 then
    begin
@@ -326,6 +603,9 @@ begin
   FRenderer.RenderFrac := 1.0;
   FTargetRenderFrac := 1.0;
   ProgressBar1.Visible := False;
+  RebuildCloudsCombo;
+  if cbClouds <> nil then
+   cbClouds.ItemIndex := cbClouds.Items.IndexOfObject(ctx);
   OpenGLPanel1.Invalidate;
  finally
   Screen.Cursor := crDefault;
@@ -361,9 +641,9 @@ begin
   FTreeList := TplugTreeList.Create(OpenGLPanel1);
  cnt := FTreeList.LoadFromCsv(fn);
  removed := 0;
- if (FLas <> nil) and (FLas.Source <> nil) and (FLas.Source.IsOpen) then
-  removed := FTreeList.FilterByBBoxXY(FLas.Source.Header.MinX, FLas.Source.Header.MaxX,
-                                      FLas.Source.Header.MinY, FLas.Source.Header.MaxY);
+ if (Las <> nil) and (Las.Source <> nil) and (Las.Source.IsOpen) then
+  removed := FTreeList.FilterByBBoxXY(Las.Source.Header.MinX, Las.Source.Header.MaxX,
+                                      Las.Source.Header.MinY, Las.Source.Header.MaxY);
  if removed > 0 then
   ShowMessage('Загружено деревьев: ' + IntToStr(cnt) + '  Удалено вне bbox(XY): ' + IntToStr(removed))
  else
@@ -398,14 +678,14 @@ var
  end;
 
 begin
- if (FLas = nil) or (FLas.Source = nil) or (not FLas.Source.IsOpen) then
+ if (Las = nil) or (Las.Source = nil) or (not Las.Source.IsOpen) then
  begin
   ShowMessage('Файл не загружен');
   Exit;
  end;
 
- h := FLas.Source.Header;
- fileName := FLas.FileName;
+ h := Las.Source.Header;
+ fileName := Las.FileName;
  sysId := AnsiArrayToString(h.SystemIdentifier);
  genSw := AnsiArrayToString(h.GeneratingSoftware);
  hasRGB := (h.PointDataRecordFormat = 2) or (h.PointDataRecordFormat = 3) or
@@ -421,7 +701,7 @@ begin
 
  s := '';
  s := s + 'Файл: ' + fileName + LineEnding;
- s := s + 'Точек: ' + IntToStr(FLas.Source.PointCount) + LineEnding;
+ s := s + 'Точек: ' + IntToStr(Las.Source.PointCount) + LineEnding;
  s := s + Format('LAS: %d.%d  HeaderSize: %d  OffsetToPointData: %d  VLR: %d', [h.VersionMajor, h.VersionMinor, h.HeaderSize, h.OffsetToPointData, h.NumberOfVLR]) + LineEnding;
  s := s + Format('FileSourceID: %d  GlobalEncoding: %d', [h.FileSourceID, h.GlobalEncoding]) + LineEnding;
  s := s + Format('PointFormat: %d  RecLen: %d  RGB: %d  GPSTime: %d', [h.PointDataRecordFormat, h.PointDataRecordLength, Ord(hasRGB), Ord(hasGpsTime)]) + LineEnding;
@@ -471,18 +751,12 @@ begin
    if Assigned(wglSwapIntervalEXT) then
     wglSwapIntervalEXT(0);
    FGLInited := True;
-   if FTiles <> nil then
-    FTiles.InitGL;
+   if FScene <> nil then
+    FScene.InitGL;
   end;
   haveOrigin := False;
-  if (FLas <> nil) and (FLas.Source <> nil) and (FLas.Source.IsOpen) then
+  if (FScene <> nil) and FScene.GetCombinedBBoxVisible(minX, minY, minZ, maxX, maxY, maxZ) then
   begin
-   minX := FLas.Source.Header.MinX;
-   minY := FLas.Source.Header.MinY;
-   minZ := FLas.Source.Header.MinZ;
-   maxX := FLas.Source.Header.MaxX;
-   maxY := FLas.Source.Header.MaxY;
-   maxZ := FLas.Source.Header.MaxZ;
    originX := (minX + maxX) * 0.5;
    originY := (minY + maxY) * 0.5;
    originZ := (minZ + maxZ) * 0.5;
@@ -591,6 +865,11 @@ begin
  end;
 end;
 
+procedure TLas3DRenderForm.Panel1Click(Sender: TObject);
+begin
+
+end;
+
 procedure TLas3DRenderForm.PointSizeSpinChange(Sender: TObject);
 begin
 
@@ -624,16 +903,16 @@ var
  idx: Integer;
 begin
  if FUpdatingUI then Exit;
- if (FTiles = nil) then Exit;
+ if (Tiles = nil) then Exit;
  if ColorModeCombo = nil then Exit;
  idx := ColorModeCombo.ItemIndex;
  if idx < 0 then Exit;
- FTiles.ColorMode := TLasPointColorMode(idx);
+ Tiles.ColorMode := TLasPointColorMode(idx);
  SaveSettings;
  Screen.Cursor := crHourglass;
  try
-  if (FLas <> nil) and (FLas.Source <> nil) and (FLas.Source.IsOpen) then
-   FTiles.BuildFromLas(FLas, 0);
+  if (Las <> nil) and (Las.Source <> nil) and (Las.Source.IsOpen) then
+   Tiles.BuildFromLas(Las, 0);
   OpenGLPanel1.Invalidate;
  finally
   Screen.Cursor := crDefault;
@@ -644,15 +923,14 @@ procedure TLas3DRenderForm.UpdateZInfoLabel;
 var
  minZ, maxZ: Double;
  dz: Double;
+ minX, minY, maxX, maxY: Double;
 begin
  if LabelZInfo = nil then Exit;
- if (FLas = nil) or (FLas.Source = nil) or (not FLas.Source.IsOpen) then
+ if (FScene = nil) or (not FScene.GetCombinedBBoxVisible(minX, minY, minZ, maxX, maxY, maxZ)) then
  begin
   LabelZInfo.Caption := '';
   Exit;
  end;
- minZ := FLas.Source.Header.MinZ;
- maxZ := FLas.Source.Header.MaxZ;
  if DeltaZEdit <> nil then
   dz := DeltaZEdit.Value
  else
@@ -721,11 +999,11 @@ begin
  FRenderer.PointSize := UpDown1.Position;
  FRenderer.SaveState;
 
- if (FRenderer.StateFileName = '') or (not Assigned(FTiles)) then Exit;
+ if (FRenderer.StateFileName = '') or (not Assigned(Tiles)) then Exit;
  try
   ini := TIniFile.Create(FRenderer.StateFileName);
   try
-   ini.WriteInteger('Render', 'ColorMode', Ord(FTiles.ColorMode));
+   ini.WriteInteger('Render', 'ColorMode', Ord(Tiles.ColorMode));
   finally
    ini.Free;
   end;
@@ -741,14 +1019,14 @@ begin
  if (FRenderer = nil) then Exit;
  FRenderer.LoadState;
 
- if (FRenderer.StateFileName <> '') and FileExists(FRenderer.StateFileName) and Assigned(FTiles) then
+ if (FRenderer.StateFileName <> '') and FileExists(FRenderer.StateFileName) and Assigned(Tiles) then
  begin
   try
    ini := TIniFile.Create(FRenderer.StateFileName);
    try
-    cm := ini.ReadInteger('Render', 'ColorMode', Ord(FTiles.ColorMode));
+    cm := ini.ReadInteger('Render', 'ColorMode', Ord(Tiles.ColorMode));
     if (cm >= Ord(Low(TLasPointColorMode))) and (cm <= Ord(High(TLasPointColorMode))) then
-     FTiles.ColorMode := TLasPointColorMode(cm);
+     Tiles.ColorMode := TLasPointColorMode(cm);
    finally
     ini.Free;
    end;
@@ -794,9 +1072,9 @@ end;
 
 procedure TLas3DRenderForm.SyncColorModeComboFromTiles;
 begin
- if (ColorModeCombo = nil) or (FTiles = nil) then Exit;
+ if (ColorModeCombo = nil) or (Tiles = nil) then Exit;
  PopulateColorModeCombo;
- ColorModeCombo.ItemIndex := Ord(FTiles.ColorMode);
+ ColorModeCombo.ItemIndex := Ord(Tiles.ColorMode);
 end;
 
 end.
