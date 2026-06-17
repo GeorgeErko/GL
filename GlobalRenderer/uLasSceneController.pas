@@ -209,7 +209,7 @@ begin
    p.X := x;
    p.Y := y;
    p.Z := z;
-   WriteIn(['POSL XYZ=', i, p.X, p.Y, p.Z]);
+//   WriteIn(['POSL XYZ=', i, p.X, p.Y, p.Z]);
    SetLength(FPoslPoints, Length(FPoslPoints) + 1);
    FPoslPoints[High(FPoslPoints)] := p;
   end;

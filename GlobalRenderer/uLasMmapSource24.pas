@@ -83,6 +83,7 @@ type
   procedure EnsureMapping;
   function HasSignature: Boolean;
   function PointRecordOffset(Index: Int64): Int64;
+  function ReadU64At(AOffset: Int64; out AValue: QWord): Boolean;
  public
   constructor Create(AOwner: TComponent); override;
   destructor Destroy; override;
@@ -151,11 +152,26 @@ begin
  Result := Int64(FHeader.OffsetToPointData) + Index * Int64(FHeader.PointDataRecordLength);
 end;
 
+function TLasMmapSource24.ReadU64At(AOffset: Int64; out AValue: QWord): Boolean;
+var
+ p: PByte;
+begin
+ Result := False;
+ AValue := 0;
+ if (FMapping = nil) or (AOffset < 0) then Exit;
+ if not FMapping.EnsureRange(AOffset, SizeUInt(SizeOf(AValue))) then Exit;
+ p := FMapping.PtrAt(AOffset);
+ if p = nil then Exit;
+ Move(p^, AValue, SizeOf(AValue));
+ Result := True;
+end;
+
 function TLasMmapSource24.Open: Boolean;
 var
  p: PByte;
  need: SizeUInt;
  hdrSize: SizeUInt;
+ extCount: QWord;
 begin
  Result := False;
  if FIsOpen then Exit(True);
@@ -176,10 +192,12 @@ begin
  if (FHeader.HeaderSize < 227) then Exit;
  if (FHeader.PointDataRecordLength = 0) then Exit;
 
+ FPointCount := Int64(FHeader.LegacyNumberOfPointRecords);
  if (FHeader.VersionMajor = 1) and (FHeader.VersionMinor = 4) then
-  FPointCount := Int64(FHeader.LegacyNumberOfPointRecords)
- else
-  FPointCount := Int64(FHeader.LegacyNumberOfPointRecords);
+ begin
+  if (FPointCount = 0) and ReadU64At(247, extCount) then
+   FPointCount := Int64(extCount);
+ end;
 
  if FPointCount < 0 then Exit;
  if Int64(FHeader.OffsetToPointData) < 0 then Exit;
@@ -211,6 +229,7 @@ begin
  Z := 0;
  if not FIsOpen then Exit;
  if (Index < 0) or (Index >= FPointCount) then Exit;
+ if Int64(FHeader.PointDataRecordLength) < 12 then Exit;
  off := PointRecordOffset(Index);
  if not FMapping.EnsureRange(off, SizeUInt(12)) then Exit;
  p := FMapping.PtrAt(off);
@@ -232,6 +251,7 @@ var
  pr0: TLASPointRecordFormat0;
  recX, recY, recZ: LongInt;
  gpsTime: Double;
+ rgbOff: Int64;
 begin
  Result := False;
  X := 0;
@@ -242,6 +262,7 @@ begin
  B := 0;
  if not FIsOpen then Exit;
  if (Index < 0) or (Index >= FPointCount) then Exit;
+ if Int64(FHeader.PointDataRecordLength) < 12 then Exit;
  if (FHeader.PointDataRecordFormat = 0) or (FHeader.PointDataRecordFormat = 1) then
  begin
   if (FHeader.PointDataRecordLength < SizeOf(TLASPointRecordFormat0)) then Exit;
@@ -298,6 +319,30 @@ begin
   Result := True;
   Exit;
  end;
+
+ if (FHeader.PointDataRecordFormat = 7) then
+ begin
+  if (FHeader.PointDataRecordLength < 36) then Exit;
+  off := PointRecordOffset(Index);
+  if not FMapping.EnsureRange(off, SizeUInt(FHeader.PointDataRecordLength)) then Exit;
+  p := FMapping.PtrAt(off);
+  if p = nil then Exit;
+  Move(p^, recX, SizeOf(recX)); Inc(p, SizeOf(recX));
+  Move(p^, recY, SizeOf(recY)); Inc(p, SizeOf(recY));
+  Move(p^, recZ, SizeOf(recZ));
+  rgbOff := off + 30;
+  if not FMapping.EnsureRange(rgbOff, 6) then Exit;
+  p := FMapping.PtrAt(rgbOff);
+  if p = nil then Exit;
+  Move(p^, R, SizeOf(R)); Inc(p, SizeOf(R));
+  Move(p^, G, SizeOf(G)); Inc(p, SizeOf(G));
+  Move(p^, B, SizeOf(B));
+  X := recX * FHeader.ScaleX + FHeader.OffsetX;
+  Y := recY * FHeader.ScaleY + FHeader.OffsetY;
+  Z := recZ * FHeader.ScaleZ + FHeader.OffsetZ;
+  Result := True;
+  Exit;
+ end;
 end;
 
 function TLasMmapSource24.GetPointXYZRGBAttrs(Index: Int64; out X, Y, Z: Double;
@@ -311,6 +356,9 @@ var
  pr0: TLASPointRecordFormat0;
  recX, recY, recZ: LongInt;
  gpsTime: Double;
+ flags2: Word;
+ scanAngleS: SmallInt;
+ rgbOff: Int64;
 begin
  Result := False;
  X := 0;
@@ -327,6 +375,7 @@ begin
  B := 0;
  if not FIsOpen then Exit;
  if (Index < 0) or (Index >= FPointCount) then Exit;
+ if Int64(FHeader.PointDataRecordLength) < 12 then Exit;
 
  if (FHeader.PointDataRecordFormat = 0) or (FHeader.PointDataRecordFormat = 1) then
  begin
@@ -399,6 +448,52 @@ begin
   X := recX * FHeader.ScaleX + FHeader.OffsetX;
   Y := recY * FHeader.ScaleY + FHeader.OffsetY;
   Z := recZ * FHeader.ScaleZ + FHeader.OffsetZ;
+  Result := True;
+  Exit;
+ end;
+
+ if (FHeader.PointDataRecordFormat = 7) then
+ begin
+  if (FHeader.PointDataRecordLength < 36) then Exit;
+  off := PointRecordOffset(Index);
+  if not FMapping.EnsureRange(off, SizeUInt(FHeader.PointDataRecordLength)) then Exit;
+  p := FMapping.PtrAt(off);
+  if p = nil then Exit;
+  Move(p^, recX, SizeOf(recX)); Inc(p, SizeOf(recX));
+  Move(p^, recY, SizeOf(recY)); Inc(p, SizeOf(recY));
+  Move(p^, recZ, SizeOf(recZ));
+
+  X := recX * FHeader.ScaleX + FHeader.OffsetX;
+  Y := recY * FHeader.ScaleY + FHeader.OffsetY;
+  Z := recZ * FHeader.ScaleZ + FHeader.OffsetZ;
+
+  if not FMapping.EnsureRange(off + 12, 18) then Exit;
+  p := FMapping.PtrAt(off + 12);
+  if p = nil then Exit;
+  Move(p^, Intensity, SizeOf(Intensity)); Inc(p, SizeOf(Intensity));
+  Move(p^, flags2, SizeOf(flags2)); Inc(p, SizeOf(flags2));
+  Flags := Byte(flags2 and $FF);
+  Move(p^, Classification, SizeOf(Classification)); Inc(p, SizeOf(Classification));
+  Move(p^, UserData, SizeOf(UserData)); Inc(p, SizeOf(UserData));
+  Move(p^, scanAngleS, SizeOf(scanAngleS)); Inc(p, SizeOf(scanAngleS));
+  if scanAngleS < -128 then ScanAngleRank := -128
+  else if scanAngleS > 127 then ScanAngleRank := 127
+  else ScanAngleRank := ShortInt(scanAngleS);
+  Move(p^, PointSourceID, SizeOf(PointSourceID));
+
+  if not FMapping.EnsureRange(off + 22, SizeUInt(SizeOf(gpsTime))) then Exit;
+  p := FMapping.PtrAt(off + 22);
+  if p = nil then Exit;
+  Move(p^, gpsTime, SizeOf(gpsTime));
+
+  rgbOff := off + 30;
+  if not FMapping.EnsureRange(rgbOff, 6) then Exit;
+  p := FMapping.PtrAt(rgbOff);
+  if p = nil then Exit;
+  Move(p^, R, SizeOf(R)); Inc(p, SizeOf(R));
+  Move(p^, G, SizeOf(G)); Inc(p, SizeOf(G));
+  Move(p^, B, SizeOf(B));
+
   Result := True;
   Exit;
  end;

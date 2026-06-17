@@ -4,7 +4,7 @@ unit ogcBasic;
 
 interface
 
-uses Classes, SysUtils, bufstream, lclmemmanager, ExtCtrls, Graphics, Types,
+uses Classes, SysUtils, bufstream, ExtCtrls, Graphics, Types,
      ogcMemStream, Math;
 
 type

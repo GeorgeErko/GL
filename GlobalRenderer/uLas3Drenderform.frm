@@ -4,16 +4,16 @@ object Las3DRenderForm: TLas3DRenderForm
   Top = 257
   Width = 827
   Caption = 'LAS Point Cloud Viewer'
-  ClientHeight = 466
+  ClientHeight = 486
   ClientWidth = 827
   Menu = r3MainMenu1
+  LCLVersion = '8.9'
   OnCreate = FormCreate
   OnDestroy = FormDestroy
-  LCLVersion = '7.8'
   object r3pnlBottom: TPanel
     Left = 0
     Height = 30
-    Top = 436
+    Top = 456
     Width = 827
     Align = alBottom
     ClientHeight = 30
@@ -41,8 +41,8 @@ object Las3DRenderForm: TLas3DRenderForm
       Top = 5
       Width = 47
       Caption = 'Plane'
-      OnChange = UIChanged
       TabOrder = 1
+      OnChange = UIChanged
     end
     object DeltaZEdit: TFloatSpinEdit
       Left = 65
@@ -53,8 +53,8 @@ object Las3DRenderForm: TLas3DRenderForm
       Increment = 0.1
       MaxValue = 1E30
       MinValue = -1E30
-      OnChange = UIChanged
       TabOrder = 2
+      OnChange = UIChanged
     end
     object kZoom: TCheckBox
       Left = 135
@@ -62,8 +62,8 @@ object Las3DRenderForm: TLas3DRenderForm
       Top = 5
       Width = 56
       Caption = 'kZoom'
-      OnChange = UIChanged
       TabOrder = 3
+      OnChange = UIChanged
     end
     object ZoomKEdit: TFloatSpinEdit
       Left = 195
@@ -74,8 +74,8 @@ object Las3DRenderForm: TLas3DRenderForm
       Increment = 0.01
       MaxValue = 1E30
       MinValue = -1E30
-      OnChange = UIChanged
       TabOrder = 4
+      OnChange = UIChanged
     end
     object ColorModeCombo: TComboBox
       Left = 265
@@ -83,14 +83,14 @@ object Las3DRenderForm: TLas3DRenderForm
       Top = 3
       Width = 155
       ItemHeight = 15
-      OnChange = ColorModeComboChange
       Style = csDropDownList
       TabOrder = 5
+      OnChange = ColorModeComboChange
     end
   end
   object OpenGLPanel1: TOpenGLPanel
     Left = 0
-    Height = 364
+    Height = 384
     Top = 72
     Width = 827
     Align = alClient
@@ -116,8 +116,8 @@ object Las3DRenderForm: TLas3DRenderForm
       Top = 6
       Width = 35
       Caption = '2D'
-      OnClick = Button2DClick
       TabOrder = 0
+      OnClick = Button2DClick
     end
     object Button3D: TButton
       Left = 73
@@ -125,8 +125,8 @@ object Las3DRenderForm: TLas3DRenderForm
       Top = 6
       Width = 35
       Caption = '3D'
-      OnClick = Button3DClick
       TabOrder = 1
+      OnClick = Button3DClick
     end
     object ButtonReset: TButton
       Left = 112
@@ -134,18 +134,18 @@ object Las3DRenderForm: TLas3DRenderForm
       Top = 6
       Width = 47
       Caption = 'Reset'
-      OnClick = ButtonResetClick
       TabOrder = 2
+      OnClick = ButtonResetClick
     end
     object Label1: TLabel
-      Left = 198
+      Left = 223
       Height = 15
       Top = 11
       Width = 35
       Caption = 'Точка:'
     end
     object LabelCamera: TLabel
-      Left = 637
+      Left = 662
       Height = 19
       Top = 6
       Width = 187
@@ -154,43 +154,43 @@ object Las3DRenderForm: TLas3DRenderForm
       OnClick = LabelCameraClick
     end
     object UpDown1: TUpDown
-      Left = 240
+      Left = 265
       Height = 31
       Top = 1
       Width = 17
       Max = 4
       Min = 1
-      OnClick = UpDown1Click
       Position = 1
       TabOrder = 3
+      OnClick = UpDown1Click
     end
     object BlendCheck: TCheckBox
-      Left = 270
+      Left = 295
       Height = 19
       Top = 7
       Width = 48
       Caption = 'Blend'
-      OnChange = UIChanged
       TabOrder = 4
+      OnChange = UIChanged
     end
     object AlphaBar: TTrackBar
-      Left = 324
+      Left = 349
       Height = 30
       Top = 4
       Width = 160
       Max = 255
-      OnChange = UIChanged
       Position = 255
+      OnChange = UIChanged
       TabOrder = 5
     end
     object TilesCheck: TCheckBox
-      Left = 502
+      Left = 527
       Height = 19
       Top = 7
       Width = 41
       Caption = 'Tiles'
-      OnChange = UIChanged
       TabOrder = 6
+      OnChange = UIChanged
     end
     object Label3: TLabel
       Left = 8
@@ -204,7 +204,6 @@ object Las3DRenderForm: TLas3DRenderForm
       Height = 25
       Top = 6
       Width = 23
-      AllowAllUp = True
       Glyph.Data = {
         66010000424D6601000000000000760000002800000014000000140000000100
         040000000000F000000000000000000000000000000000000000000000000000
@@ -220,6 +219,43 @@ object Las3DRenderForm: TLas3DRenderForm
         77777777777777770000
       }
       GroupIndex = 1
+      OnClick = sbRun1Click
+    end
+    object sbRun2: TSpeedButton
+      Left = 189
+      Height = 22
+      Top = 7
+      Width = 23
+      Glyph.Data = {
+        36030000424D3603000000000000360000002800000010000000100000000100
+        1800000000000003000000000000000000000000000000000000FF00FFFF00FF
+        FF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00
+        FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF
+        00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FF
+        FF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00
+        FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FF66666666666666666666666666
+        6666666666666666666666666666666666FF00FFFF00FFFF00FFFF00FFFF00FF
+        B24E1DB24E1DB24E1DB24E1DB24E1DB24E1DB24E1DB24E1DB24E1DB24E1DB24E
+        1D666666FF00FFFF00FFB8B6B1FF00FFB17C59D8EAEFD8EAEFD8EAEFD8EAEFD8
+        EAEFD8EAEFD8EAEFD8EAEFD8EAEFB24E1D666666FF00FFFF00FFFF00FFFF00FF
+        B17C59D7E7EBCED3D3C9CCCCC9CCCCC9CCCCC9CCCCC9CCCCC9CCCCE8F2F5BEA1
+        8C784428666666FF00FFBBB6AE999C9DFF00FFB17C59CBDDE18F9697FFFFFFFF
+        FFFFFFFFFFFFFFFFF3F6F7E2E9EBD9EAEFB4753B666666FF00FFFF00FFFF00FF
+        FF00FFB17C59D8EAEF94A2ACD0D0D0FFFFFFFFFFFFFFFFFFFFFFFFD6E1E4EBF4
+        F7B48A6B666666FF00FFB6AFA5949490FF00FFB17C59D6E4E8D8EAEF80898980
+        89898089898089898089898B9697E7ECEDCFD0CDB4753B666666FF00FFFF00FF
+        FF00FFFF00FFB17C59D8EAEFD8EAEFD8EAEFD8EAEFD8EAEFD8EAEFD8EAEFD8EA
+        EFD8EAEFB4753B666666CDC5BAB6B2ACA3A5A4FF00FFB17C59DF902EDF8D27DF
+        8D27DF8D27DF8D27DF8D27E8A34EE7A049D49449B4753B865339FF00FFFF00FF
+        FF00FFFF00FFFF00FFB24E1DB24E1DB24E1DB24E1DB24E1DB24E1DB24E1DB24E
+        1DB24E1DB24E1DFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF
+        00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FF
+        FF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00
+        FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF
+        00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FF
+      }
+      GroupIndex = 1
+      OnClick = sbRun2Click
     end
   end
   object Panel1: TPanel
@@ -300,7 +336,7 @@ object Las3DRenderForm: TLas3DRenderForm
     end
   end
   object cbTileSize: TComboBox
-    Left = 550
+    Left = 575
     Height = 23
     Top = 41
     Width = 74
@@ -317,9 +353,9 @@ object Las3DRenderForm: TLas3DRenderForm
       '750'
       '1000'
     )
-    OnChange = cbTileSizeChange
     TabOrder = 4
     Text = '100'
+    OnChange = cbTileSizeChange
   end
   object r3sbAddLas1: TSpeedButton
     Left = 337
@@ -379,7 +415,7 @@ object Las3DRenderForm: TLas3DRenderForm
   end
   object UpdateTimer: TTimer
     Enabled = False
-    Interval = 250
+    Interval = 1
     OnTimer = UpdateTimerTimer
     Left = 480
     Top = 100

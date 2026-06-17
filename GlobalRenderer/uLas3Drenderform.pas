@@ -34,6 +34,7 @@ type
   r3sbOpen1: TSpeedButton;
   r3sbAddLas: TSpeedButton;
   sbRun1: TSpeedButton;
+  sbRun2: TSpeedButton;
   ZoomKEdit: TFloatSpinEdit;
   Label1: TLabel;
   LabelCamera: TLabel;
@@ -66,11 +67,13 @@ type
   procedure OpenGLPanel1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
   procedure OpenGLPanel1MouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
   procedure OpenGLPanel1MouseWheel(Sender: TObject; Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+  procedure sbRun1Click(Sender: TObject);
   procedure Button2DClick(Sender: TObject);
   procedure Button3DClick(Sender: TObject);
   procedure ButtonResetClick(Sender: TObject);
   procedure Panel1Click(Sender: TObject);
   procedure PointSizeSpinChange(Sender: TObject);
+  procedure sbRun2Click(Sender: TObject);
   procedure UIChanged(Sender: TObject);
   procedure ColorModeComboChange(Sender: TObject);
   procedure UpdateTimerTimer(Sender: TObject);
@@ -89,6 +92,10 @@ type
   FLastPaintTick: QWord;
   FLxtFileName: String;
   FCurrentLasFile: String;
+  FRun2SegIndex: Integer;
+  FRun2SegS: Double;
+  FRun2LastTick: QWord;
+  FRun2Speed: Double;
   function ActiveContext: TLasFileContext;
   procedure RebuildCloudsCombo;
   function GetLas: TogsLas;
@@ -197,6 +204,10 @@ begin
  FLastPaintTick := 0;
  FPainting := False;
  FTargetRenderFrac := 1.0;
+ FRun2SegIndex := 0;
+ FRun2SegS := 0;
+ FRun2LastTick := 0;
+ FRun2Speed := 5.0;
  FRenderer.RenderFrac := 1.0;
  FRenderer.BlendEnabled := (BlendCheck <> nil) and BlendCheck.Checked;
  if AlphaBar <> nil then
@@ -213,6 +224,8 @@ begin
   cbClouds.OnChange := cbCloudsChange;
  if r3sbAddLas <> nil then
   r3sbAddLas.OnClick := r3sbAddLasClick;
+ if sbRun1 <> nil then
+  sbRun1.OnClick := sbRun1Click;
  //
  PopulateColorModeCombo;
  SyncColorModeComboFromTiles;
@@ -381,7 +394,7 @@ begin
      end;
     end;
 
-    LoadSettings;
+   LoadSettings;
 
     if (ctx.Tiles <> nil) and OpenGLPanel1.MakeCurrent then
     begin
@@ -773,6 +786,7 @@ end;
 //
 procedure TLas3DRenderForm.OpenGLPanel1MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
+ if ((sbRun1 <> nil) and sbRun1.Down) or ((sbRun2 <> nil) and sbRun2.Down) then Exit;
  if FRenderer <> nil then
  begin
   FRenderer.UseDyna := True;
@@ -784,6 +798,7 @@ end;
 procedure TLas3DRenderForm.OpenGLPanel1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
 var tick: QWord;
 begin
+ if ((sbRun1 <> nil) and sbRun1.Down) or ((sbRun2 <> nil) and sbRun2.Down) then Exit;
  if FRenderer <> nil then
  begin
   if not FMouseDragging then
@@ -808,6 +823,11 @@ end;
 //
 procedure TLas3DRenderForm.OpenGLPanel1MouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
+ if ((sbRun1 <> nil) and sbRun1.Down) or ((sbRun2 <> nil) and sbRun2.Down) then
+ begin
+  FMouseDragging := False;
+  Exit;
+ end;
  if FRenderer <> nil then
  begin
   FRenderer.MouseUp(Button, Shift, X, Y);
@@ -823,6 +843,11 @@ end;
 procedure TLas3DRenderForm.OpenGLPanel1MouseWheel(Sender: TObject; Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
 var p: TPoint;
 begin
+ if ((sbRun1 <> nil) and sbRun1.Down) or ((sbRun2 <> nil) and sbRun2.Down) then
+ begin
+  Handled := True;
+  Exit;
+ end;
  if FRenderer <> nil then
  begin
   FRenderer.UseDyna := True;
@@ -873,6 +898,31 @@ end;
 procedure TLas3DRenderForm.PointSizeSpinChange(Sender: TObject);
 begin
 
+end;
+
+procedure TLas3DRenderForm.sbRun2Click(Sender: TObject);
+begin
+ if (sbRun2 = nil) then Exit;
+ if not sbRun2.Down then
+ begin
+  if FRenderer <> nil then
+   FRenderer.UseDyna := False;
+  UpdateTimer.Enabled := True;
+  Exit;
+ end;
+
+ FRun2SegIndex := 0;
+ FRun2SegS := 0;
+ FRun2LastTick := GetTickCount64;
+ if FRenderer <> nil then
+ begin
+  FRenderer.Mode := rm3D;
+  FRenderer.AutoDistance := False;
+  FRenderer.Pitch := -90;
+  FRenderer.Distance := 10;
+  FRenderer.UseDyna := False;
+ end;
+ UpdateTimer.Enabled := True;
 end;
 
 procedure TLas3DRenderForm.UIChanged(Sender: TObject);
@@ -951,9 +1001,118 @@ end;
 //
 //
 procedure TLas3DRenderForm.UpdateTimerTimer(Sender: TObject);
-var tick: QWord;
+var
+ tick: QWord;
+ dt: Double;
+ minX, minY, minZ, maxX, maxY, maxZ: Double;
+ originX, originY, originZ: Double;
+ p0x, p0y, p0z: Double;
+ p1x, p1y, p1z: Double;
+ ax, ay, az: Double;
+ bx, by, bz: Double;
+ segDx, segDy, segDz: Double;
+ segLen: Double;
+ segT: Double;
+ yawRad: Double;
+ camX, camY, camZ: Double;
 begin
- UpdateTimer.Enabled := False;
+ //UpdateTimer.Enabled := False;
+
+ if (sbRun2 <> nil) and sbRun2.Down and (FScene <> nil) and (FRenderer <> nil) then
+ begin
+  tick := GetTickCount64;
+  if FRun2LastTick = 0 then
+   FRun2LastTick := tick;
+  dt := (tick - FRun2LastTick) / 1000.0;
+  if dt < 0 then dt := 0;
+  if dt > 0.2 then dt := 0.2;
+  FRun2LastTick := tick;
+
+  if not FScene.GetCombinedBBoxVisible(minX, minY, minZ, maxX, maxY, maxZ) then
+  begin
+   UpdateTimer.Enabled := True;
+   Exit;
+  end;
+  originX := (minX + maxX) * 0.5;
+  originY := (minY + maxY) * 0.5;
+  originZ := (minZ + maxZ) * 0.5;
+
+  if (FRun2SegIndex < 0) then FRun2SegIndex := 0;
+  if (FRun2SegIndex >= FScene.PoslPointCount - 1) then
+  begin
+   sbRun2.Down := False;
+   UpdateTimer.Enabled := True;
+   Exit;
+  end;
+
+  if (not FScene.GetPoslPoint(FRun2SegIndex, p0x, p0y, p0z)) or
+     (not FScene.GetPoslPoint(FRun2SegIndex + 1, p1x, p1y, p1z)) then
+  begin
+   sbRun2.Down := False;
+   UpdateTimer.Enabled := True;
+   Exit;
+  end;
+
+  ax := p0x - originX;
+  ay := p0y - originY;
+  az := p0z - originZ;
+  bx := p1x - originX;
+  by := p1y - originY;
+  bz := p1z - originZ;
+
+  segDx := bx - ax;
+  segDy := by - ay;
+  segDz := bz - az;
+  segLen := Sqrt(segDx * segDx + segDy * segDy + segDz * segDz);
+  if segLen < 1E-9 then
+  begin
+   Inc(FRun2SegIndex);
+   FRun2SegS := 0;
+   UpdateTimer.Enabled := True;
+   Exit;
+  end;
+
+  FRun2SegS := FRun2SegS + dt * Max(0.1, FRun2Speed);
+  while (FRun2SegS >= segLen) and (FRun2SegIndex < FScene.PoslPointCount - 2) do
+  begin
+   FRun2SegS := FRun2SegS - segLen;
+   Inc(FRun2SegIndex);
+
+   if (not FScene.GetPoslPoint(FRun2SegIndex, p0x, p0y, p0z)) or
+      (not FScene.GetPoslPoint(FRun2SegIndex + 1, p1x, p1y, p1z)) then
+    Break;
+   ax := p0x - originX;
+   ay := p0y - originY;
+   az := p0z - originZ;
+   bx := p1x - originX;
+   by := p1y - originY;
+   bz := p1z - originZ;
+   segDx := bx - ax;
+   segDy := by - ay;
+   segDz := bz - az;
+   segLen := Sqrt(segDx * segDx + segDy * segDy + segDz * segDz);
+   if segLen < 1E-9 then segLen := 1E-9;
+  end;
+
+  segT := EnsureRange(FRun2SegS / segLen, 0.0, 1.0);
+  camX := ax + segDx * segT;
+  camY := ay + segDy * segT;
+  camZ := az + segDz * segT + 2.0;
+
+  yawRad := ArcTan2(segDx, segDy);
+  FRenderer.Yaw := RadToDeg(yawRad);
+  FRenderer.Pitch := -90;
+  FRenderer.Distance := 10;
+  FRenderer.PanX := -FRenderer.Distance * Sin(yawRad) - camX;
+  FRenderer.PanY := -FRenderer.Distance * Cos(yawRad) - camY;
+  FRenderer.PanZ := -camZ;
+
+  FRenderer.UseDyna := False;
+  UpdateTimer.Enabled := True;
+  OpenGLPanel1.Invalidate;
+  Exit;
+ end;
+
  if FRenderer <> nil then
  begin
   tick := GetTickCount64;
@@ -995,6 +1154,7 @@ procedure TLas3DRenderForm.SaveSettings;
 var
  ini: TIniFile;
 begin
+ exit;
  if (FRenderer = nil) then Exit;
  FRenderer.PointSize := UpDown1.Position;
  FRenderer.SaveState;
@@ -1075,6 +1235,60 @@ begin
  if (ColorModeCombo = nil) or (Tiles = nil) then Exit;
  PopulateColorModeCombo;
  ColorModeCombo.ItemIndex := Ord(Tiles.ColorMode);
+end;
+
+procedure TLas3DRenderForm.sbRun1Click(Sender: TObject);
+var
+ minX, minY, minZ, maxX, maxY, maxZ: Double;
+ originX, originY, originZ: Double;
+ px0, py0, pz0: Double;
+ px1, py1, pz1: Double;
+ localX, localY, localZ: Double;
+ segDx, segDy: Double;
+ segLen: Double;
+ yawRad: Double;
+ distance: Double;
+ camZ: Double;
+begin
+ if (sbRun1 = nil) or (not sbRun1.Down) then Exit;
+ if (FScene = nil) or (FRenderer = nil) then Exit;
+ if not FScene.GetCombinedBBoxVisible(minX, minY, minZ, maxX, maxY, maxZ) then Exit;
+ if not FScene.GetPoslPoint(0, px0, py0, pz0) then Exit;
+
+ originX := (minX + maxX) * 0.5;
+ originY := (minY + maxY) * 0.5;
+ originZ := (minZ + maxZ) * 0.5;
+
+ localX := px0 - originX;
+ localY := py0 - originY;
+ localZ := pz0 - originZ;
+
+ FRenderer.Mode := rm3D;
+ FRenderer.AutoDistance := False;
+ FRenderer.Pitch := -90;
+
+ yawRad := 0;
+ if FScene.GetPoslPoint(1, px1, py1, pz1) then
+ begin
+  segDx := (px1 - originX) - localX;
+  segDy := (py1 - originY) - localY;
+  segLen := Hypot(segDx, segDy);
+  if segLen > 1E-12 then
+   yawRad := ArcTan2(segDx, segDy);
+ end;
+ FRenderer.Yaw := RadToDeg(yawRad);
+
+ distance := 10;
+ FRenderer.Distance := distance;
+
+ camZ := localZ + 2.0;
+ FRenderer.PanX := -distance * Sin(yawRad) - localX;
+ FRenderer.PanY := -distance * Cos(yawRad) - localY;
+ FRenderer.PanZ := -camZ;
+
+ FMouseDragging := False;
+ UpdateCameraLabel;
+ OpenGLPanel1.Invalidate;
 end;
 
 end.
