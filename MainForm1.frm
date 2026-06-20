@@ -6,10 +6,10 @@ object MainFrm: TMainFrm
   Caption = 'MainFrm'
   ClientHeight = 543
   ClientWidth = 939
+  LCLVersion = '8.9'
   OnChangeBounds = FormChangeBounds
   OnCreate = FormCreate
   OnDestroy = FormDestroy
-  LCLVersion = '7.8'
   object SpkToolbar1: TSpkToolbar
     Left = 0
     Height = 112
@@ -56,6 +56,8 @@ object MainFrm: TMainFrm
     Appearance.Element.IdleGradientType = bkConcave
     Appearance.Element.IdleInnerLightColor = 16184048
     Appearance.Element.IdleInnerDarkColor = 13091002
+    Appearance.Element.IdleKnobColor = 6317407
+    Appearance.Element.IdleTrackColor = 15395562
     Appearance.Element.IdleCaptionColor = 6317407
     Appearance.Element.HotTrackFrameColor = 10211293
     Appearance.Element.HotTrackGradientFromColor = 14351615
@@ -63,6 +65,7 @@ object MainFrm: TMainFrm
     Appearance.Element.HotTrackGradientType = bkConcave
     Appearance.Element.HotTrackInnerLightColor = 12972543
     Appearance.Element.HotTrackInnerDarkColor = 8045272
+    Appearance.Element.HotTrackTrackColor = 14351615
     Appearance.Element.HotTrackCaptionColor = 8864367
     Appearance.Element.HotTrackBrightnessChange = 40
     Appearance.Element.ActiveFrameColor = 5535371
@@ -71,8 +74,33 @@ object MainFrm: TMainFrm
     Appearance.Element.ActiveGradientType = bkConcave
     Appearance.Element.ActiveInnerLightColor = 961020
     Appearance.Element.ActiveInnerDarkColor = 961020
+    Appearance.Element.ActiveKnobColor = 4035324
+    Appearance.Element.ActiveTrackColor = 12972543
     Appearance.Element.ActiveCaptionColor = 8405614
+    Appearance.Element.KnobAsGradient = True
     Appearance.Element.Style = esRounded
+    Appearance.Popup.CaptionFont.Color = 9126421
+    Appearance.Popup.CheckedFrameColor = 3577330
+    Appearance.Popup.CheckedGradientFromColor = 9823231
+    Appearance.Popup.CheckedGradientToColor = 9823231
+    Appearance.Popup.CheckedGradientType = bkSolid
+    Appearance.Popup.DisabledCaptionColor = clSilver
+    Appearance.Popup.DividerLineColor = 12500670
+    Appearance.Popup.GutterFrameColor = 12961221
+    Appearance.Popup.GutterGradientFromColor = 15724527
+    Appearance.Popup.GutterGradientToColor = 15724527
+    Appearance.Popup.GutterGradientType = bkSolid
+    Appearance.Popup.HotTrackCaptionColor = 8864367
+    Appearance.Popup.HotTrackFrameColor = 10079963
+    Appearance.Popup.HotTrackGradientFromColor = 14351615
+    Appearance.Popup.HotTrackGradientToColor = 5101567
+    Appearance.Popup.HotTrackGradientType = bkConcave
+    Appearance.Popup.IdleCaptionColor = 6317407
+    Appearance.Popup.IdleGradientFromColor = 16448250
+    Appearance.Popup.IdleGradientToColor = 16448250
+    Appearance.Popup.IdleGradientType = bkConcave
+    Appearance.Popup.SelectionShape = ssRectangle
+    Appearance.Popup.Style = psGutter
     TabIndex = 0
     MenuButtonCaption = 'Menu'
     MenuButtonDropdownMenu = PopupMenu1
@@ -120,6 +148,8 @@ object MainFrm: TMainFrm
       CustomAppearance.Element.IdleGradientType = bkConcave
       CustomAppearance.Element.IdleInnerLightColor = 15852501
       CustomAppearance.Element.IdleInnerDarkColor = 15520702
+      CustomAppearance.Element.IdleKnobColor = 11631958
+      CustomAppearance.Element.IdleTrackColor = 16182242
       CustomAppearance.Element.IdleCaptionColor = 11631958
       CustomAppearance.Element.HotTrackFrameColor = 10211293
       CustomAppearance.Element.HotTrackGradientFromColor = 14351615
@@ -127,6 +157,7 @@ object MainFrm: TMainFrm
       CustomAppearance.Element.HotTrackGradientType = bkConcave
       CustomAppearance.Element.HotTrackInnerLightColor = 12972543
       CustomAppearance.Element.HotTrackInnerDarkColor = 8045272
+      CustomAppearance.Element.HotTrackTrackColor = 14351615
       CustomAppearance.Element.HotTrackCaptionColor = 8864367
       CustomAppearance.Element.HotTrackBrightnessChange = 40
       CustomAppearance.Element.ActiveFrameColor = 5535371
@@ -135,8 +166,32 @@ object MainFrm: TMainFrm
       CustomAppearance.Element.ActiveGradientType = bkConcave
       CustomAppearance.Element.ActiveInnerLightColor = 961020
       CustomAppearance.Element.ActiveInnerDarkColor = 961020
+      CustomAppearance.Element.ActiveKnobColor = 4035324
+      CustomAppearance.Element.ActiveTrackColor = 12972543
       CustomAppearance.Element.ActiveCaptionColor = 8405614
+      CustomAppearance.Element.KnobAsGradient = True
       CustomAppearance.Element.Style = esRounded
+      CustomAppearance.Popup.CheckedFrameColor = 3577330
+      CustomAppearance.Popup.CheckedGradientFromColor = 9823231
+      CustomAppearance.Popup.CheckedGradientToColor = 9823231
+      CustomAppearance.Popup.CheckedGradientType = bkSolid
+      CustomAppearance.Popup.DisabledCaptionColor = clSilver
+      CustomAppearance.Popup.DividerLineColor = 14922381
+      CustomAppearance.Popup.GutterFrameColor = 12961221
+      CustomAppearance.Popup.GutterGradientFromColor = 15658729
+      CustomAppearance.Popup.GutterGradientToColor = 15658729
+      CustomAppearance.Popup.GutterGradientType = bkSolid
+      CustomAppearance.Popup.HotTrackCaptionColor = 8864367
+      CustomAppearance.Popup.HotTrackFrameColor = 10079963
+      CustomAppearance.Popup.HotTrackGradientFromColor = 14351615
+      CustomAppearance.Popup.HotTrackGradientToColor = 5101567
+      CustomAppearance.Popup.HotTrackGradientType = bkConcave
+      CustomAppearance.Popup.IdleCaptionColor = 11631958
+      CustomAppearance.Popup.IdleGradientFromColor = 16448250
+      CustomAppearance.Popup.IdleGradientToColor = 16448250
+      CustomAppearance.Popup.IdleGradientType = bkConcave
+      CustomAppearance.Popup.SelectionShape = ssRectangle
+      CustomAppearance.Popup.Style = psGutter
       Caption = 'Main'
       Panes = (
         'SpkPane1'
@@ -234,6 +289,8 @@ object MainFrm: TMainFrm
       CustomAppearance.Element.IdleGradientType = bkConcave
       CustomAppearance.Element.IdleInnerLightColor = 15852501
       CustomAppearance.Element.IdleInnerDarkColor = 15520702
+      CustomAppearance.Element.IdleKnobColor = 11631958
+      CustomAppearance.Element.IdleTrackColor = 16182242
       CustomAppearance.Element.IdleCaptionColor = 11631958
       CustomAppearance.Element.HotTrackFrameColor = 10211293
       CustomAppearance.Element.HotTrackGradientFromColor = 14351615
@@ -241,6 +298,7 @@ object MainFrm: TMainFrm
       CustomAppearance.Element.HotTrackGradientType = bkConcave
       CustomAppearance.Element.HotTrackInnerLightColor = 12972543
       CustomAppearance.Element.HotTrackInnerDarkColor = 8045272
+      CustomAppearance.Element.HotTrackTrackColor = 14351615
       CustomAppearance.Element.HotTrackCaptionColor = 8864367
       CustomAppearance.Element.HotTrackBrightnessChange = 40
       CustomAppearance.Element.ActiveFrameColor = 5535371
@@ -249,8 +307,32 @@ object MainFrm: TMainFrm
       CustomAppearance.Element.ActiveGradientType = bkConcave
       CustomAppearance.Element.ActiveInnerLightColor = 961020
       CustomAppearance.Element.ActiveInnerDarkColor = 961020
+      CustomAppearance.Element.ActiveKnobColor = 4035324
+      CustomAppearance.Element.ActiveTrackColor = 12972543
       CustomAppearance.Element.ActiveCaptionColor = 8405614
+      CustomAppearance.Element.KnobAsGradient = True
       CustomAppearance.Element.Style = esRounded
+      CustomAppearance.Popup.CheckedFrameColor = 3577330
+      CustomAppearance.Popup.CheckedGradientFromColor = 9823231
+      CustomAppearance.Popup.CheckedGradientToColor = 9823231
+      CustomAppearance.Popup.CheckedGradientType = bkSolid
+      CustomAppearance.Popup.DisabledCaptionColor = clSilver
+      CustomAppearance.Popup.DividerLineColor = 14922381
+      CustomAppearance.Popup.GutterFrameColor = 12961221
+      CustomAppearance.Popup.GutterGradientFromColor = 15658729
+      CustomAppearance.Popup.GutterGradientToColor = 15658729
+      CustomAppearance.Popup.GutterGradientType = bkSolid
+      CustomAppearance.Popup.HotTrackCaptionColor = 8864367
+      CustomAppearance.Popup.HotTrackFrameColor = 10079963
+      CustomAppearance.Popup.HotTrackGradientFromColor = 14351615
+      CustomAppearance.Popup.HotTrackGradientToColor = 5101567
+      CustomAppearance.Popup.HotTrackGradientType = bkConcave
+      CustomAppearance.Popup.IdleCaptionColor = 11631958
+      CustomAppearance.Popup.IdleGradientFromColor = 16448250
+      CustomAppearance.Popup.IdleGradientToColor = 16448250
+      CustomAppearance.Popup.IdleGradientType = bkConcave
+      CustomAppearance.Popup.SelectionShape = ssRectangle
+      CustomAppearance.Popup.Style = psGutter
       Caption = 'Tab'
       Panes = (
         'SpkPane3'
@@ -301,7 +383,6 @@ object MainFrm: TMainFrm
       Width = 280
       Align = alLeft
       Color = clBtnFace
-      FixedCols = 0
       RowCount = 10
       TabOrder = 1
       OnClick = VLEClick
@@ -371,9 +452,9 @@ object MainFrm: TMainFrm
     Top = 80
     Width = 75
     Caption = 'ToggleBox1'
-    OnChange = ToggleBox1Change
     TabOrder = 4
     Visible = False
+    OnChange = ToggleBox1Change
   end
   object btnTestTiles: TButton
     Left = 480
@@ -381,8 +462,8 @@ object MainFrm: TMainFrm
     Top = 27
     Width = 75
     Caption = 'TestTiles'
-    OnClick = btnTestTilesClick
     TabOrder = 5
+    OnClick = btnTestTilesClick
   end
   object btnTestTiles1: TButton
     Left = 480
@@ -390,8 +471,8 @@ object MainFrm: TMainFrm
     Top = 54
     Width = 75
     Caption = 'FreeTiles'
-    OnClick = btnTestTilesClick
     TabOrder = 6
+    OnClick = btnTestTilesClick
   end
   object GroupBox1: TGroupBox
     Left = 576
@@ -417,8 +498,8 @@ object MainFrm: TMainFrm
       Width = 80
       Increment = 10
       MaxValue = 100
-      OnChange = FloatSpinEdit1Change
       TabOrder = 0
+      OnChange = FloatSpinEdit1Change
     end
     object Button1: TButton
       Left = 11
@@ -426,8 +507,8 @@ object MainFrm: TMainFrm
       Top = 32
       Width = 42
       Caption = 'GL'
-      OnClick = Button1Click
       TabOrder = 1
+      OnClick = Button1Click
     end
     object ButtonMap2D: TButton
       Left = 60
@@ -435,8 +516,8 @@ object MainFrm: TMainFrm
       Top = 32
       Width = 60
       Caption = 'Map2D'
-      OnClick = ButtonMap2DClick
       TabOrder = 2
+      OnClick = ButtonMap2DClick
     end
   end
   object ButtonMap2D1: TButton
@@ -445,8 +526,8 @@ object MainFrm: TMainFrm
     Top = 80
     Width = 60
     Caption = 'Vec'
-    OnClick = ButtonMap2D1Click
     TabOrder = 8
+    OnClick = ButtonMap2D1Click
   end
   object PopupMenu1: TPopupMenu
     Left = 296

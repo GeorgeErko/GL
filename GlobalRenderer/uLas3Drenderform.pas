@@ -8,15 +8,24 @@ uses
  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ExtCtrls, OpenGLPanel,
  Menus, ComCtrls, StdCtrls, Spin, Buttons, ComboEx, IniFiles, Math,
  uogslasrenderer, ogcLas, uLasPointCloudTiles, ogcBasic, ogcRegistry, plugTrees,
- uLasFileContext, uLasSceneController;
+ uLasFileContext, uLasSceneController, ogcWriter;
 
 type
+ TPolylinePoint = record
+  X, Y, Z: Double;
+ end;
+
+ TPolyline = array of TPolylinePoint;
+ PPolyline = ^TPolyline;
 
  { TLas3DRenderForm }
 
  TLas3DRenderForm = class(TForm)
   AlphaBar: TTrackBar;
   BlendCheck: TCheckBox;
+  btnMap: TButton;
+  btnCut: TButton;
+  btnDel: TButton;
   Button2D: TButton;
   Button3D: TButton;
   ButtonReset: TButton;
@@ -27,6 +36,7 @@ type
   kZoom: TCheckBox;
   Label2: TLabel;
   Label3: TLabel;
+  XYLabel: TLabel;
   Panel1: TPanel;
   r3sbAddLas1: TSpeedButton;
   r3sbAddLas2: TSpeedButton;
@@ -53,6 +63,9 @@ type
   TilesCheck: TCheckBox;
   UpdateTimer: TTimer;
   UpDown1: TUpDown;
+  procedure btnCutClick(Sender: TObject);
+  procedure btnDelClick(Sender: TObject);
+  procedure btnMapClick(Sender: TObject);
   procedure cbCloudsChange(Sender: TObject);
   procedure cbTileSizeChange(Sender: TObject);
   procedure FormCreate(Sender: TObject);
@@ -96,6 +109,11 @@ type
   FRun2SegS: Double;
   FRun2LastTick: QWord;
   FRun2Speed: Double;
+  FMapMode: Boolean;
+  FPolylines: TList;
+  FCurrentPolyline: TPolyline;
+  FMouseCursorPos: TPolylinePoint;
+  FMouseCursorValid: Boolean;
   function ActiveContext: TLasFileContext;
   procedure RebuildCloudsCombo;
   function GetLas: TogsLas;
@@ -107,6 +125,10 @@ type
   procedure LoadSettings;
   procedure PopulateColorModeCombo;
   procedure SyncColorModeComboFromTiles;
+  procedure SavePolylinesToFile;
+  procedure LoadPolylinesFromFile;
+  procedure StartNewPolyline;
+  procedure RenderPolylines(AOriginX, AOriginY, AOriginZ: Double; AOffsetX, AOffsetY: Double);
  public
   OwnerForm: TForm;
   function CurrentLasFile: String;
@@ -118,7 +140,7 @@ type
 var
  Las3DRenderForm: TLas3DRenderForm;
 
-implementation uses dglOpenGL, ogcWriter, ClipBrd, uLasMmapSource24;
+implementation uses dglOpenGL, ClipBrd, uLasMmapSource24;
 
 {$R *.frm}
 
@@ -208,6 +230,9 @@ begin
  FRun2SegS := 0;
  FRun2LastTick := 0;
  FRun2Speed := 5.0;
+ FMapMode := False;
+ FPolylines := TList.Create;
+ FMouseCursorValid := False;
  FRenderer.RenderFrac := 1.0;
  FRenderer.BlendEnabled := (BlendCheck <> nil) and BlendCheck.Checked;
  if AlphaBar <> nil then
@@ -252,9 +277,19 @@ end;
 
 //
 procedure TLas3DRenderForm.FormDestroy(Sender: TObject);
+var
+ i: Integer;
 begin
  SaveSettings;
  FreeAndNil(FTreeList);
+ if FPolylines <> nil then
+ begin
+  for i := 0 to FPolylines.Count - 1 do
+   if FPolylines[i] <> nil then
+    SetLength(TPolyline(FPolylines[i]^), 0);
+  FreeAndNil(FPolylines);
+ end;
+ SetLength(FCurrentPolyline, 0);
  FRenderer := nil;
  FreeAndNil(FScene);
 end;
@@ -330,6 +365,73 @@ begin
   end;
  end;
  UpdateZInfoLabel;
+ OpenGLPanel1.Invalidate;
+end;
+
+procedure TLas3DRenderForm.btnMapClick(Sender: TObject);
+var polyCopy: PPolyline;
+begin
+ if FRenderer = nil then Exit;
+ if FScene = nil then Exit;
+
+ FMapMode := not FMapMode;
+
+ if FMapMode then
+ begin
+  btnMap.Caption := 'Map ON';
+  LoadPolylinesFromFile;
+  StartNewPolyline;
+ end
+ else
+ begin
+  btnMap.Caption := 'Map';
+  if Length(FCurrentPolyline) > 0 then
+  begin
+   New(polyCopy);
+   polyCopy^ := Copy(FCurrentPolyline);
+   FPolylines.Add(polyCopy);
+   SetLength(FCurrentPolyline, 0);
+   SavePolylinesToFile;
+  end;
+ end;
+
+ OpenGLPanel1.Invalidate;
+end;
+
+procedure TLas3DRenderForm.btnCutClick(Sender: TObject);
+var
+ ctx: TLasFileContext;
+ minX, minY, minZ, maxX, maxY, maxZ: Double;
+ originZ, planeZ: Double;
+begin
+ if FRenderer = nil then Exit;
+ if FScene = nil then Exit;
+
+ ctx := ActiveContext;
+ if (ctx = nil) or (ctx.Tiles = nil) then Exit;
+
+ if not FScene.GetCombinedBBoxVisible(minX, minY, minZ, maxX, maxY, maxZ) then Exit;
+
+ originZ := (minZ + maxZ) * 0.5;
+ planeZ := (minZ + FRenderer.PlaneDeltaZ) - originZ;
+
+// WriteIn(['btnCutClick: minZ=', minZ, 'maxZ=', maxZ, 'originZ=', originZ, 'PlaneDeltaZ=', FRenderer.PlaneDeltaZ, 'planeZ=', planeZ]);
+
+ FRenderer.ClipEnabled := True;
+ FRenderer.ClipZ := planeZ;
+
+// WriteIn(['btnCutClick: ClipEnabled=', FRenderer.ClipEnabled, 'ClipZ=', FRenderer.ClipZ]);
+
+ OpenGLPanel1.Invalidate;
+end;
+
+procedure TLas3DRenderForm.btnDelClick(Sender: TObject);
+begin
+ if not FMapMode then Exit;
+ if FPolylines.Count = 0 then Exit;
+
+ FPolylines.Delete(FPolylines.Count - 1);
+ SavePolylinesToFile;
  OpenGLPanel1.Invalidate;
 end;
 
@@ -751,6 +853,7 @@ var
  maxX, maxY, maxZ: Double;
  originX, originY, originZ: Double;
  haveOrigin: Boolean;
+ ctx: TLasFileContext;
 begin
  if FRenderer = nil then Exit;
  if FPainting then Exit;
@@ -778,6 +881,65 @@ begin
   FRenderer.Render;
   if haveOrigin and (FTreeList <> nil) then
    FTreeList.RenderTrees(originX, originY, originZ);
+
+  if FMapMode and haveOrigin then
+  begin
+  // WriteIn(['Rendering polylines: FMapMode=', FMapMode, 'haveOrigin=', haveOrigin, 'Mode=', Ord(FRenderer.Mode), 'FMouseCursorValid=', FMouseCursorValid]);
+   //if FMouseCursorValid then
+   // WriteIn(['  Cursor pos:', FMouseCursorPos.X, FMouseCursorPos.Y, FMouseCursorPos.Z]);
+   glDisable(GL_DEPTH_TEST);
+   glPointSize(3.0);
+   glColor3f(1.0, 0.0, 0.0);
+   glBegin(GL_POINTS);
+   if FRenderer.Mode = rmOrtho2D then
+   begin
+    ctx := ActiveContext;
+    if (ctx <> nil) and (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+     RenderPolylines(0, 0, 0, ctx.Las.Source.Header.OffsetX, ctx.Las.Source.Header.OffsetY)
+    else
+     RenderPolylines(0, 0, 0, 0, 0);
+    if FMouseCursorValid then
+    begin
+     ctx := ActiveContext;
+     if (ctx <> nil) and (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+      glVertex3f(FMouseCursorPos.X - ctx.Las.Source.Header.OffsetX, FMouseCursorPos.Y - ctx.Las.Source.Header.OffsetY, FMouseCursorPos.Z)
+     else
+      glVertex3f(FMouseCursorPos.X, FMouseCursorPos.Y, FMouseCursorPos.Z);
+    end;
+   end
+   else
+   begin
+    ctx := ActiveContext;
+    if (ctx <> nil) and (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+     RenderPolylines(originX, originY, originZ, ctx.Las.Source.Header.OffsetX, ctx.Las.Source.Header.OffsetY)
+    else
+     RenderPolylines(originX, originY, originZ, 0, 0);
+    if FMouseCursorValid then
+     glVertex3f(FMouseCursorPos.X - originX, FMouseCursorPos.Y - originY, FMouseCursorPos.Z - originZ);
+   end;
+   glEnd;
+   glLineWidth(2.5);
+   glBegin(GL_LINES);
+   if FRenderer.Mode = rmOrtho2D then
+   begin
+    ctx := ActiveContext;
+    if (ctx <> nil) and (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+     RenderPolylines(0, 0, 0, ctx.Las.Source.Header.OffsetX, ctx.Las.Source.Header.OffsetY)
+    else
+     RenderPolylines(0, 0, 0, 0, 0);
+   end
+   else
+   begin
+    ctx := ActiveContext;
+    if (ctx <> nil) and (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+     RenderPolylines(originX, originY, originZ, ctx.Las.Source.Header.OffsetX, ctx.Las.Source.Header.OffsetY)
+    else
+     RenderPolylines(originX, originY, originZ, 0, 0);
+   end;
+   glEnd;
+   glEnable(GL_DEPTH_TEST);
+  end;
+
   OpenGLPanel1.SwapBuffers;
  finally
   FPainting := False;
@@ -785,20 +947,145 @@ begin
 end;
 //
 procedure TLas3DRenderForm.OpenGLPanel1MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var
+ ctx: TLasFileContext;
+ minX, minY, minZ, maxX, maxY, maxZ: Double;
+ originX, originY, originZ: Double;
+ planeZ: Double;
+ pt: TPolylinePoint;
 begin
  if ((sbRun1 <> nil) and sbRun1.Down) or ((sbRun2 <> nil) and sbRun2.Down) then Exit;
+
+ if FMapMode and (Button = mbLeft) then
+ begin
+  if FRenderer.Mode <> rmOrtho2D then
+   Exit;
+
+  ctx := ActiveContext;
+  if (ctx = nil) or (ctx.Tiles = nil) then Exit;
+  if not FScene.GetCombinedBBoxVisible(minX, minY, minZ, maxX, maxY, maxZ) then Exit;
+
+  if FRenderer.Mode = rmOrtho2D then
+  begin
+   if FRenderer.RayIntersectPlane2D(X, Y, minX, minY, maxX, maxY, pt.X, pt.Y) then
+   begin
+    pt.Z := minZ + FRenderer.PlaneDeltaZ;
+    if (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+    begin
+     pt.X := pt.X + ctx.Las.Source.Header.OffsetX;
+     pt.Y := pt.Y + ctx.Las.Source.Header.OffsetY;
+    end;
+    SetLength(FCurrentPolyline, Length(FCurrentPolyline) + 1);
+    FCurrentPolyline[High(FCurrentPolyline)] := pt;
+    OpenGLPanel1.Invalidate;
+   end;
+  end
+  else
+  begin
+   planeZ := (minZ + FRenderer.PlaneDeltaZ) - originZ;
+   if FRenderer.RayIntersectPlane(X, Y, planeZ, pt.X, pt.Y) then
+   begin
+    pt.X := pt.X + originX;
+    pt.Y := pt.Y + originY;
+    pt.Z := minZ + FRenderer.PlaneDeltaZ;
+    SetLength(FCurrentPolyline, Length(FCurrentPolyline) + 1);
+    FCurrentPolyline[High(FCurrentPolyline)] := pt;
+    OpenGLPanel1.Invalidate;
+   end;
+  end;
+  Exit;
+ end;
+
  if FRenderer <> nil then
  begin
-  FRenderer.UseDyna := True;
-  FRenderer.MouseDown(Button, Shift, X, Y);
-  FMouseDragging := True;
+  if FRenderer.Mode = rmOrtho2D then
+  begin
+   if Button = mbRight then
+   begin
+    FRenderer.UseDyna := True;
+    FRenderer.MouseDown(Button, Shift, X, Y);
+    FMouseDragging := True;
+   end
+  end
+  else
+  begin
+   FRenderer.UseDyna := True;
+   FRenderer.MouseDown(Button, Shift, X, Y);
+   FMouseDragging := True;
+  end;
  end;
 end;
 //
 procedure TLas3DRenderForm.OpenGLPanel1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
-var tick: QWord;
+var
+ ctx: TLasFileContext;
+ minX, minY, minZ, maxX, maxY, maxZ: Double;
+ originX, originY, originZ: Double;
+ planeZ: Double;
+ tick: QWord;
 begin
  if ((sbRun1 <> nil) and sbRun1.Down) or ((sbRun2 <> nil) and sbRun2.Down) then Exit;
+
+ if FRenderer.Mode = rmOrtho2D then
+ begin
+  ctx := ActiveContext;
+  if (ctx <> nil) and (ctx.Tiles <> nil) and FScene.GetCombinedBBoxVisible(minX, minY, minZ, maxX, maxY, maxZ) then
+  begin
+   if FRenderer.RayIntersectPlane2D(X, Y, minX, minY, maxX, maxY, FMouseCursorPos.X, FMouseCursorPos.Y) then
+   begin
+    FMouseCursorPos.Z := minZ + FRenderer.PlaneDeltaZ;
+    FMouseCursorValid := True;
+    if XYLabel <> nil then
+    begin
+     if (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+      XYLabel.Caption := Format('X: %.3f  Y: %.3f', [FMouseCursorPos.X + ctx.Las.Source.Header.OffsetX, FMouseCursorPos.Y + ctx.Las.Source.Header.OffsetY])
+     else
+      XYLabel.Caption := Format('X: %.3f  Y: %.3f', [FMouseCursorPos.X, FMouseCursorPos.Y]);
+    end;
+   end
+   else
+   begin
+    FMouseCursorValid := False;
+    if XYLabel <> nil then
+     XYLabel.Caption := '';
+   end;
+  end;
+ end
+ else if FRenderer.Mode = rm3D then
+ begin
+  ctx := ActiveContext;
+  if (ctx <> nil) and (ctx.Tiles <> nil) and FScene.GetCombinedBBoxVisible(minX, minY, minZ, maxX, maxY, maxZ) then
+  begin
+   planeZ := (minZ + FRenderer.PlaneDeltaZ) - originZ;
+   if FRenderer.RayIntersectPlane(X, Y, planeZ, FMouseCursorPos.X, FMouseCursorPos.Y) then
+   begin
+    FMouseCursorPos.X := FMouseCursorPos.X + originX;
+    FMouseCursorPos.Y := FMouseCursorPos.Y + originY;
+    FMouseCursorPos.Z := minZ + FRenderer.PlaneDeltaZ;
+    FMouseCursorValid := True;
+    if XYLabel <> nil then
+    begin
+     if (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+      XYLabel.Caption := Format('X: %.3f  Y: %.3f', [FMouseCursorPos.X + ctx.Las.Source.Header.OffsetX, FMouseCursorPos.Y + ctx.Las.Source.Header.OffsetY])
+     else
+      XYLabel.Caption := Format('X: %.3f  Y: %.3f', [FMouseCursorPos.X, FMouseCursorPos.Y]);
+    end;
+   end
+   else
+   begin
+    FMouseCursorValid := False;
+    if XYLabel <> nil then
+     XYLabel.Caption := '';
+   end;
+  end;
+ end;
+
+ if FMapMode then
+ begin
+  if FMouseCursorValid then
+   OpenGLPanel1.Invalidate;
+ end;
+
  if FRenderer <> nil then
  begin
   if not FMouseDragging then
@@ -926,6 +1213,10 @@ begin
 end;
 
 procedure TLas3DRenderForm.UIChanged(Sender: TObject);
+var
+ ctx: TLasFileContext;
+ minX, minY, minZ, maxX, maxY, maxZ: Double;
+ originZ, planeZ: Double;
 begin
  if FUpdatingUI then Exit;
  if FRenderer = nil then Exit;
@@ -943,6 +1234,21 @@ begin
  FRenderer.ZoomToPlaneEnabled := (kZoom <> nil) and kZoom.Checked;
  if ZoomKEdit <> nil then
   FRenderer.ZoomToPlaneK := ZoomKEdit.Value;
+
+ if FRenderer.ClipEnabled and (FScene <> nil) then
+ begin
+  ctx := ActiveContext;
+  if (ctx <> nil) and (ctx.Tiles <> nil) then
+  begin
+   if FScene.GetCombinedBBoxVisible(minX, minY, minZ, maxX, maxY, maxZ) then
+   begin
+    originZ := (minZ + maxZ) * 0.5;
+    planeZ := (minZ + FRenderer.PlaneDeltaZ) - originZ;
+    FRenderer.ClipZ := planeZ;
+   end;
+  end;
+ end;
+
  OpenGLPanel1.Invalidate;
  SaveSettings;
  UpdateZInfoLabel;
@@ -1235,6 +1541,147 @@ begin
  if (ColorModeCombo = nil) or (Tiles = nil) then Exit;
  PopulateColorModeCombo;
  ColorModeCombo.ItemIndex := Ord(Tiles.ColorMode);
+end;
+
+procedure TLas3DRenderForm.LoadPolylinesFromFile;
+var
+ i, j: Integer;
+ sl: TStringList;
+ fn: String;
+ poly: PPolyline;
+ line: String;
+ p1, p2: Integer;
+ pt: TPolylinePoint;
+ ctx: TLasFileContext;
+begin
+ ctx := ActiveContext;
+ if (ctx <> nil) and (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+  fn := ChangeFileExt(ctx.Las.Source.FileName, '.txp')
+ else
+  fn := ExtractFilePath(ParamStr(0)) + 'Polylines.txt';
+
+// WriteIn(['LoadPolylinesFromFile: fn=', fn, 'FileExists=', FileExists(fn)]);
+
+ if not FileExists(fn) then Exit;
+
+ FPolylines.Clear;  // Clear existing polylines before loading
+
+ sl := TStringList.Create;
+ try
+  sl.LoadFromFile(fn);
+//  WriteIn(['LoadPolylinesFromFile: loaded ', sl.Count, ' lines']);
+ // for i := 0 to sl.Count - 1 do
+  // WriteIn(['  Line ', i, ': ', Trim(sl[i])]);
+  i := 0;
+  while i < sl.Count do
+  begin
+   line := Trim(sl[i]);
+   if Pos('Polyline', line) > 0 then
+   begin
+    New(poly);
+    SetLength(poly^, 0);
+    Inc(i);
+    while (i < sl.Count) and (Trim(sl[i]) <> '') and (Pos('Polyline', Trim(sl[i])) = 0) do
+    begin
+     line := Trim(sl[i]);
+     p1 := Pos(',', line);
+     if p1 > 0 then
+     begin
+      p2 := Pos(',', line, p1 + 1);
+      if p2 > 0 then
+      begin
+       SetLength(poly^, Length(poly^) + 1);
+       poly^[High(poly^)].X := StrToFloatDef(Copy(line, 1, p1 - 1), 0);
+       poly^[High(poly^)].Y := StrToFloatDef(Copy(line, p1 + 1, p2 - p1 - 1), 0);
+       poly^[High(poly^)].Z := StrToFloatDef(Copy(line, p2 + 1, Length(line) - p2), 0);
+      end;
+     end;
+     Inc(i);
+    end;
+    if Length(poly^) >= 2 then
+    begin
+     FPolylines.Add(poly);
+    // WriteIn(['LoadPolylinesFromFile: added polyline with ', Length(poly^), ' points']);
+    end
+    else
+     Dispose(poly);
+   end
+   else
+    Inc(i);
+  end;
+ // WriteIn(['LoadPolylinesFromFile: total polylines loaded=', FPolylines.Count]);
+ finally
+  sl.Free;
+ end;
+end;
+
+procedure TLas3DRenderForm.SavePolylinesToFile;
+var
+ i, j: Integer;
+ sl: TStringList;
+ fn: String;
+ ctx: TLasFileContext;
+begin
+ if FPolylines.Count = 0 then Exit;
+
+ sl := TStringList.Create;
+ try
+  ctx := ActiveContext;
+  if (ctx <> nil) and (ctx.Las <> nil) and (ctx.Las.Source <> nil) and (ctx.Las.Source.IsOpen) then
+   fn := ChangeFileExt(ctx.Las.Source.FileName, '.txp')
+  else
+   fn := ExtractFilePath(ParamStr(0)) + 'Polylines.txt';
+  for i := 0 to FPolylines.Count - 1 do
+  begin
+   sl.Add('Polyline ' + IntToStr(i + 1));
+   for j := 0 to Length(TPolyline(FPolylines[i]^)) - 1 do
+    sl.Add(Format('  %.6f,%.6f,%.6f',
+     [TPolyline(FPolylines[i]^)[j].X,
+      TPolyline(FPolylines[i]^)[j].Y,
+      TPolyline(FPolylines[i]^)[j].Z]));
+  end;
+  sl.SaveToFile(fn);
+ finally
+  sl.Free;
+ end;
+end;
+
+procedure TLas3DRenderForm.StartNewPolyline;
+begin
+ if Length(FCurrentPolyline) > 0 then
+  SavePolylinesToFile;
+ SetLength(FCurrentPolyline, 0);
+end;
+
+procedure TLas3DRenderForm.RenderPolylines(AOriginX, AOriginY, AOriginZ: Double; AOffsetX, AOffsetY: Double);
+var
+ i, j: Integer;
+ poly: TPolyline;
+begin
+ if Length(FCurrentPolyline) >= 2 then
+ begin
+ // WriteIn(['RenderPolylines: CurrentPolyline points=', Length(FCurrentPolyline)]);
+  for j := 0 to Length(FCurrentPolyline) - 1 do
+  // WriteIn(['  Point', j, ':', FCurrentPolyline[j].X - AOriginX - AOffsetX, FCurrentPolyline[j].Y - AOriginY - AOffsetY, FCurrentPolyline[j].Z - AOriginZ]);
+ end;
+
+ for i := 0 to FPolylines.Count - 1 do
+ begin
+  poly := TPolyline(FPolylines[i]^);
+  if Length(poly) < 2 then Continue;
+  for j := 0 to Length(poly) - 2 do
+  begin
+   glVertex3f(poly[j].X - AOriginX - AOffsetX, poly[j].Y - AOriginY - AOffsetY, poly[j].Z - AOriginZ);
+   glVertex3f(poly[j + 1].X - AOriginX - AOffsetX, poly[j + 1].Y - AOriginY - AOffsetY, poly[j + 1].Z - AOriginZ);
+  end;
+ end;
+
+ if Length(FCurrentPolyline) < 2 then Exit;
+ for j := 0 to Length(FCurrentPolyline) - 2 do
+ begin
+  glVertex3f(FCurrentPolyline[j].X - AOriginX - AOffsetX, FCurrentPolyline[j].Y - AOriginY - AOffsetY, FCurrentPolyline[j].Z - AOriginZ);
+  glVertex3f(FCurrentPolyline[j + 1].X - AOriginX - AOffsetX, FCurrentPolyline[j + 1].Y - AOriginY - AOffsetY, FCurrentPolyline[j + 1].Z - AOriginZ);
+ end;
 end;
 
 procedure TLas3DRenderForm.sbRun1Click(Sender: TObject);

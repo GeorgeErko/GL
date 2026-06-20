@@ -387,7 +387,7 @@ begin
 
  if FMode = rmOrtho2D then
  begin
-  if FDownButton = mbLeft then
+  if FDownButton = mbRight then
   begin
    if GetCombinedBBoxVisible(minX, minY, minZ, maxX, maxY, maxZ) then
    begin

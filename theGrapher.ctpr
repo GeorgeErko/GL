@@ -7,6 +7,7 @@
       <SessionStorage Value="InProjectDir"/>
       <Title Value="theGrapher"/>
       <Scaled Value="True"/>
+      <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
       <UseXPManifest Value="True"/>
       <XPManifest>
@@ -14,6 +15,11 @@
       </XPManifest>
       <Icon Value="0"/>
     </General>
+    <CustomData Count="3">
+      <Item0 Name="OpenAPIBase"/>
+      <Item1 Name="OpenAPIConfig"/>
+      <Item2 Name="OpenAPIFile"/>
+    </CustomData>
     <BuildModes>
       <Item Name="Default" Default="True"/>
       <Item Name="Debug">

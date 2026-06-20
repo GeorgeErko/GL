@@ -35,6 +35,8 @@ type
    FBaseLocMVP: GLint;
    FBaseLocPointSize: GLint;
    FBaseLocAlpha: GLint;
+   FBaseLocClipEnabled: GLint;
+   FBaseLocClipZ: GLint;
 
    FFxLocMVP: GLint;
    FFxLocPointSize: GLint;
@@ -179,6 +181,8 @@ begin
  FBaseLocMVP := glGetUniformLocation(FProgramBase, PGLchar(PAnsiChar('uMVP')));
  FBaseLocPointSize := glGetUniformLocation(FProgramBase, PGLchar(PAnsiChar('uPointSize')));
  FBaseLocAlpha := glGetUniformLocation(FProgramBase, PGLchar(PAnsiChar('uAlpha')));
+ FBaseLocClipEnabled := glGetUniformLocation(FProgramBase, PGLchar(PAnsiChar('uClipEnabled')));
+ FBaseLocClipZ := glGetUniformLocation(FProgramBase, PGLchar(PAnsiChar('uClipZ')));
 end;
 
 procedure TLasPointCloudGpu.QueryFxLocations;
@@ -204,6 +208,7 @@ const
   'attribute vec3 aPos;'#10+
   'attribute vec4 aColor;'#10+
   'varying vec4 vColor;'#10+
+  'varying float vZ;'#10+
   'uniform mat4 uMVP;'#10+
   'uniform float uPointSize;'#10+
   'uniform float uAlpha;'#10+
@@ -211,12 +216,17 @@ const
   '  gl_Position = uMVP * vec4(aPos, 1.0);'#10+
   '  gl_PointSize = uPointSize;'#10+
   '  vColor = vec4(aColor.rgb, aColor.a * uAlpha);'#10+
+  '  vZ = aPos.z;'#10+
   '}'#10;
 //
  FS_BASE: AnsiString =
   '#version 120'#10+
   'varying vec4 vColor;'#10+
+  'varying float vZ;'#10+
+  'uniform int uClipEnabled;'#10+
+  'uniform float uClipZ;'#10+
   'void main() {'#10+
+  '  if ((uClipEnabled != 0) && (vZ > uClipZ)) discard;'#10+
   '  gl_FragColor = vColor;'#10+
   '}'#10;
 
@@ -263,7 +273,7 @@ const
   'uniform int uHighlightOnly;'#10+
   'uniform vec4 uHighlightColor;'#10+
   'void main() {'#10+
-  '  if ((uClipEnabled != 0) && (vZ < uClipZ)) discard;'#10+
+  '  if ((uClipEnabled != 0) && (vZ > uClipZ)) discard;'#10+
   '  if ((uPickEnabled != 0) && (uHighlightOnly != 0)) {'#10+
   '    if (vPick < 0.5) discard;'#10+
   '    gl_FragColor = uHighlightColor;'#10+
@@ -513,6 +523,10 @@ begin
   glUniform1f(FBaseLocPointSize, APointSize);
  if FBaseLocAlpha >= 0 then
   glUniform1f(FBaseLocAlpha, EnsureRange(AAlpha, 0.0, 1.0));
+ if FBaseLocClipEnabled >= 0 then
+  glUniform1i(FBaseLocClipEnabled, Ord(AClipEnabled));
+ if FBaseLocClipZ >= 0 then
+  glUniform1f(FBaseLocClipZ, AClipZ);
 
  if FVAO <> 0 then
  begin

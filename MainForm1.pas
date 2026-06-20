@@ -14,7 +14,7 @@ uses LCLIntf, Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ExtCtrls, V
  BGRAThemeButton, BGRAColorTheme, BGRASVGTheme, BCDefaultThemeManager,
  BCMaterialDesignButton, ogcCallbackRec,
  vswebsocket, ogcInterServer, ogcTileLayer,
- uLas3DViewerForm, OpenGLPanel;
+ uLas3DViewerForm, OpenGLPanel, LazLogger;
 
 type
 

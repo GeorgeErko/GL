@@ -2,10 +2,10 @@ object Las3DRenderForm: TLas3DRenderForm
   Left = 314
   Height = 486
   Top = 257
-  Width = 827
+  Width = 884
   Caption = 'LAS Point Cloud Viewer'
   ClientHeight = 486
-  ClientWidth = 827
+  ClientWidth = 884
   Menu = r3MainMenu1
   LCLVersion = '8.9'
   OnCreate = FormCreate
@@ -14,16 +14,16 @@ object Las3DRenderForm: TLas3DRenderForm
     Left = 0
     Height = 30
     Top = 456
-    Width = 827
+    Width = 884
     Align = alBottom
     ClientHeight = 30
-    ClientWidth = 827
+    ClientWidth = 884
     TabOrder = 0
     object ProgressBar1: TProgressBar
       Left = 662
       Height = 20
       Top = 4
-      Width = 158
+      Width = 215
       Anchors = [akTop, akLeft, akRight]
       TabOrder = 0
     end
@@ -31,7 +31,7 @@ object Las3DRenderForm: TLas3DRenderForm
       Left = 426
       Height = 20
       Top = 6
-      Width = 231
+      Width = 288
       Anchors = [akTop, akLeft, akRight]
       AutoSize = False
     end
@@ -92,7 +92,7 @@ object Las3DRenderForm: TLas3DRenderForm
     Left = 0
     Height = 384
     Top = 72
-    Width = 827
+    Width = 884
     Align = alClient
     OnClick = OpenGLPanel1Click
     OnMouseDown = OpenGLPanel1MouseDown
@@ -105,10 +105,10 @@ object Las3DRenderForm: TLas3DRenderForm
     Left = 0
     Height = 36
     Top = 36
-    Width = 827
+    Width = 884
     Align = alTop
     ClientHeight = 36
-    ClientWidth = 827
+    ClientWidth = 884
     TabOrder = 2
     object Button2D: TButton
       Left = 33
@@ -145,7 +145,7 @@ object Las3DRenderForm: TLas3DRenderForm
       Caption = 'Точка:'
     end
     object LabelCamera: TLabel
-      Left = 662
+      Left = 719
       Height = 19
       Top = 6
       Width = 187
@@ -262,10 +262,10 @@ object Las3DRenderForm: TLas3DRenderForm
     Left = 0
     Height = 36
     Top = 0
-    Width = 827
+    Width = 884
     Align = alTop
     ClientHeight = 36
-    ClientWidth = 827
+    ClientWidth = 884
     TabOrder = 3
     OnClick = Panel1Click
     object r3sbOpen: TSpeedButton
@@ -333,6 +333,40 @@ object Las3DRenderForm: TLas3DRenderForm
       ItemHeight = 15
       TabOrder = 0
       Text = 'cbClouds'
+    end
+    object btnMap: TButton
+      Left = 720
+      Height = 25
+      Top = 5
+      Width = 48
+      Caption = 'Map'
+      TabOrder = 1
+      OnClick = btnMapClick
+    end
+    object btnCut: TButton
+      Left = 664
+      Height = 25
+      Top = 4
+      Width = 51
+      Caption = 'btnCut'
+      TabOrder = 2
+      OnClick = btnCutClick
+    end
+    object XYLabel: TLabel
+      Left = 407
+      Height = 15
+      Top = 12
+      Width = 42
+      Caption = 'XYLabel'
+    end
+    object btnDel: TButton
+      Left = 776
+      Height = 25
+      Top = 5
+      Width = 48
+      Caption = 'Del'
+      TabOrder = 3
+      OnClick = btnDelClick
     end
   end
   object cbTileSize: TComboBox

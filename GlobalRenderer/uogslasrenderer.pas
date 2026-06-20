@@ -63,6 +63,8 @@ type
   procedure MouseMove(Shift: TShiftState; X, Y: Integer); virtual;
   procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); virtual;
   procedure MouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint); virtual;
+  function RayIntersectPlane(const AMouseX, AMouseY: Integer; const APlaneZ: Double; out AX, AY: Double): Boolean;
+ function RayIntersectPlane2D(const AMouseX, AMouseY: Integer; const AMinX, AMinY, AMaxX, AMaxY: Double; out AX, AY: Double): Boolean;
   procedure ResetView;
   procedure SaveState;
   procedure LoadState;
@@ -90,9 +92,11 @@ type
   property ZoomToPlaneK: Double read FZoomToPlaneK write FZoomToPlaneK;
   property ShowTileBBoxes: Boolean read FShowTileBBoxes write SetShowTileBBoxes;
   property DynaLodTileSize: Double read FDynaLodTileSize write FDynaLodTileSize;
+  property DownButton: TMouseButton read FDownButton;
+  property Down: Boolean read FDown;
  end;
 
-implementation
+implementation uses ogcWriter;
 
 const
  ZoomStepMeters = 5.0;
@@ -206,6 +210,39 @@ begin
 
  AX := camX + dirX * t;
  AY := camY + dirY * t;
+ Result := True;
+end;
+
+function TLasRenderer.RayIntersectPlane(const AMouseX, AMouseY: Integer; const APlaneZ: Double; out AX, AY: Double): Boolean;
+begin
+ Result := RayPlaneIntersect(AMouseX, AMouseY, APlaneZ, AX, AY);
+end;
+
+function TLasRenderer.RayIntersectPlane2D(const AMouseX, AMouseY: Integer; const AMinX, AMinY, AMaxX, AMaxY: Double; out AX, AY: Double): Boolean;
+var
+ w, h: Integer;
+ aspect: Double;
+ distance: Double;
+ nx, ny: Double;
+begin
+ Result := False;
+ AX := 0;
+ AY := 0;
+
+ if (FOGL = nil) then Exit;
+ w := FOGL.Width;
+ h := FOGL.Height;
+ if (w <= 0) or (h <= 0) then Exit;
+
+ aspect := w / Double(h);
+ distance := Max(AMaxX - AMinX, AMaxY - AMinY) * 0.5 * FOrthoScale;
+ if distance < 1 then distance := 1;
+
+ nx := (2.0 * (AMouseX + 0.5) / w) - 1.0;
+ ny := 1.0 - (2.0 * (AMouseY + 0.5) / h);
+
+ AX := nx * distance * aspect + FPanX;
+ AY := ny * distance + FPanY;
  Result := True;
 end;
 
@@ -603,7 +640,7 @@ begin
  FLastY := Y;
  if FMode = rmOrtho2D then
  begin
-  if FDownButton = mbLeft then
+  if FDownButton = mbRight then
   begin
    if (FLas <> nil) and FLas.Loaded then
    begin
